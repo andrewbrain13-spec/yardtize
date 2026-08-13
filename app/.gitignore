@@ -42,3 +42,6 @@ next-env.d.ts
 
 # ...but the template belongs in the repo
 !.env.example
+
+# public build-time config (no secrets) — see the file header
+!.env.production
