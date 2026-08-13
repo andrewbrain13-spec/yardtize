@@ -134,6 +134,17 @@ type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Relationships: [];
 };
 
+export type AadtCacheRow = {
+  id: string;
+  lat_key: number;
+  lng_key: number;
+  aadt_sum: number | null;
+  segments: unknown;
+  source: string | null;
+  data_year: number | null;
+  fetched_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -141,6 +152,7 @@ export type Database = {
       jurisdictions: Table<Jurisdiction>;
       listings: Table<Listing>;
       requests: Table<PlacementRequest>;
+      aadt_cache: Table<AadtCacheRow>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
