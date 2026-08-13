@@ -12,8 +12,9 @@ export const KARNES = {
   city: "Kansas City",
   state: "MO",
   postalCode: "64111",
-  lat: 39.0716,
-  lng: -94.5947,
+  // Google Geocoding, ROOFTOP accuracy (the mockup's coordinate was ~70 m off).
+  lat: 39.0709538,
+  lng: -94.5947984,
   intersection: "SW Trafficway & W 31st St",
   signalized: true,
   cornerLot: true,
@@ -43,7 +44,9 @@ export const KARNES_SEGMENTS: TrafficSegment[] = [
   {
     road: "W 31st St",
     descriptor: "at SW Trafficway",
-    aadt: 11070,
+    // The planning docs said "~11,070"; the nearest counted segment to the
+    // rooftop coordinate actually reports 11,084 (the next one back is 11,066).
+    aadt: 11084,
     year: 2025,
     source: "MoDOT",
     counted: true,
