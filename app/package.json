@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "yardtize",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,7 +20,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
-    "playwright": "^1.62.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
