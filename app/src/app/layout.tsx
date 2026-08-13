@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { getSessionProfile } from "@/lib/supabase/server";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,15 +12,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let signedIn = false;
+  try {
+    signedIn = Boolean((await getSessionProfile())?.user);
+  } catch {
+    // Supabase not configured on this deployment — render as a logged-out visitor.
+  }
+
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <Nav />
+        <Nav signedIn={signedIn} />
         <main className="flex-1">{children}</main>
         <Footer />
       </body>

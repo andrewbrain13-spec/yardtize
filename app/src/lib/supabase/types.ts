@@ -1,0 +1,156 @@
+/**
+ * Database types, kept in step with supabase/migrations/*.sql by hand.
+ * (Once the Supabase CLI can reach the project we can generate these instead.)
+ */
+
+export type UserRole = "homeowner" | "business";
+export type ListingStatus = "draft" | "live" | "paused";
+export type RequestStatus =
+  | "requested"
+  | "approved"
+  | "declined"
+  | "active"
+  | "completed";
+export type AdvertiserType = "business" | "campaign" | "nonprofit";
+export type InstallChoice = "self" | "platform";
+
+export type TrafficSegmentRow = {
+  road: string;
+  descriptor?: string;
+  aadt: number;
+  year: number;
+  source: string;
+};
+
+/** Shape of jurisdictions.rules — see 0002_jurisdictions_seed.sql. */
+export type JurisdictionRules = {
+  max_sign_sqft: number;
+  max_height_ft: number;
+  setback_ft: number | null;
+  corner_diagonal_ft: number | null;
+  permit_required_above_sqft: number | null;
+  max_signs_per_lot: number;
+  noncommercial: {
+    aggregate_sqft: number;
+    duration_limit_days: number | null;
+    note?: string;
+  };
+  commercial_offpremise_allowed: boolean;
+  commercial_note?: string;
+  nonprofit_exempt: boolean;
+  nonprofit_note?: string;
+  political: {
+    allowed_year_round: boolean;
+    statute?: string;
+    protected_window_start?: string;
+    protected_window_end?: string;
+    note?: string;
+  };
+  display_period_days: number | null;
+  gap_days: number | null;
+  weekend_corner: {
+    allowed: boolean;
+    max_sqft_per_face: number;
+    max_faces: number;
+    max_height_ft: number;
+    window: string;
+    note?: string;
+  } | null;
+  enforcement: { process: string; platform_posture: string };
+};
+
+export type Profile = {
+  id: string;
+  email: string;
+  role: UserRole | null;
+  full_name: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Jurisdiction = {
+  id: string;
+  name: string;
+  state: string;
+  match_city: string | null;
+  is_default: boolean;
+  is_verified: boolean;
+  rules: JurisdictionRules;
+  citations: string[];
+  created_at: string;
+};
+
+export type Listing = {
+  id: string;
+  owner_id: string;
+  jurisdiction_id: string | null;
+  street_address: string;
+  city: string;
+  state: string;
+  postal_code: string | null;
+  headline: string | null;
+  lat: number;
+  lng: number;
+  sign_lat: number | null;
+  sign_lng: number | null;
+  aadt_sum: number | null;
+  traffic_segments: TrafficSegmentRow[];
+  traffic_source: string | null;
+  traffic_year: number | null;
+  signalized: boolean;
+  corner_lot: boolean;
+  suggested_rate: number | null;
+  monthly_rate: number | null;
+  status: ListingStatus;
+  is_demo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlacementRequest = {
+  id: string;
+  listing_id: string;
+  requester_id: string;
+  advertiser_type: AdvertiserType;
+  advertiser_name: string;
+  sign_size_label: string;
+  sign_size_sqft: number;
+  duration_months: number | null;
+  is_election_window: boolean;
+  install: InstallChoice;
+  rendering_path: string | null;
+  message: string | null;
+  status: RequestStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Update;
+  // supabase-js's generic requires this key even when we never traverse
+  // relationships through the typed client.
+  Relationships: [];
+};
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: Table<Profile>;
+      jurisdictions: Table<Jurisdiction>;
+      listings: Table<Listing>;
+      requests: Table<PlacementRequest>;
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: {
+      user_role: UserRole;
+      listing_status: ListingStatus;
+      request_status: RequestStatus;
+      advertiser_type: AdvertiserType;
+      install_choice: InstallChoice;
+    };
+    CompositeTypes: Record<string, never>;
+  };
+};

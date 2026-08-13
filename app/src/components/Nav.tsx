@@ -10,7 +10,7 @@ const LINKS = [
   { href: "/browse", label: "For businesses" },
 ];
 
-export function Nav() {
+export function Nav({ signedIn = false }: { signedIn?: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -47,8 +47,8 @@ export function Nav() {
 
       <div className="flex-1" />
 
-      <Link href="/sign-in" className={buttonClass("ghost")}>
-        Sign in
+      <Link href={signedIn ? "/dashboard" : "/sign-in"} className={buttonClass("ghost")}>
+        {signedIn ? "Your account" : "Sign in"}
       </Link>
     </nav>
   );
