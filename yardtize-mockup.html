@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yardtize — Your yard is prime ad space</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+    --hairline:#e1e0d9; --border:rgba(11,11,11,0.10);
+    --brand:#166534; --brand-deep:#14532d; --brand-mid:#16a34a; --brand-wash:#f0f7f1; --brand-wash-2:#e2efe4;
+    --good:#0ca30c; --good-text:#006300; --warn:#fab219; --amber:#b45309;
+    --radius:14px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(11,11,11,.05),0 6px 24px rgba(11,11,11,.07);
+    --shadow-lg:0 4px 12px rgba(11,11,11,.08),0 18px 50px rgba(11,11,11,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--ink);font-size:15px;line-height:1.5}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink)}
+  h1,h2,h3,h4{line-height:1.2;font-weight:650}
+  .muted{color:var(--ink-2)} .tiny{font-size:12.5px;color:var(--ink-3)}
+
+  /* ---------- Top nav ---------- */
+  .nav{position:sticky;top:0;z-index:1200;display:flex;align-items:center;gap:26px;padding:0 26px;height:58px;background:rgba(252,252,251,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--hairline)}
+  .wordmark{display:flex;align-items:center;gap:9px;font-weight:750;font-size:19px;letter-spacing:-.2px;cursor:pointer;user-select:none}
+  .wordmark .mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--brand-mid),var(--brand-deep));display:grid;place-items:center;color:#fff;font-size:15px;font-weight:800}
+  .navlinks{display:flex;gap:4px;margin-left:8px}
+  .navlink{border:0;background:none;padding:8px 13px;border-radius:9px;color:var(--ink-2);font-weight:550}
+  .navlink:hover{background:var(--brand-wash);color:var(--ink)}
+  .navlink.active{background:var(--brand-wash-2);color:var(--brand-deep)}
+  .nav .spacer{flex:1}
+  .btn{border:0;border-radius:11px;padding:10px 17px;font-weight:620;transition:filter .12s}
+  .btn:hover{filter:brightness(1.06)}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-ghost{background:none;border:1px solid var(--border);color:var(--ink)}
+  .btn-big{padding:14px 26px;font-size:16.5px;border-radius:13px}
+  .proto-pill{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--amber);background:#fdf3e3;border:1px solid #f3ddb5;border-radius:99px;padding:3px 10px}
+
+  .view{display:none} .view.active{display:block}
+
+  /* ---------- Landing ---------- */
+  .hero{max-width:1120px;margin:0 auto;padding:74px 26px 30px;display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+  .hero h1{font-size:46px;letter-spacing:-1.2px;font-weight:760}
+  .hero h1 em{font-style:normal;color:var(--brand)}
+  .hero p.lead{margin:18px 0 26px;font-size:17.5px;color:var(--ink-2);max-width:52ch}
+  .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
+  .hero-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden}
+  .hero-card .hc-map{height:225px;background:
+     linear-gradient(rgba(20,60,30,.18),rgba(20,60,30,.18)),
+     repeating-linear-gradient(45deg,#31402f 0 26px,#3a4a37 26px 52px);position:relative}
+  .hc-road-v{position:absolute;top:0;bottom:0;left:56%;width:44px;background:#4a4a48;border-left:2px solid #6b6b68;border-right:2px solid #6b6b68}
+  .hc-road-h{position:absolute;left:0;right:0;top:54%;height:34px;background:#4a4a48;border-top:2px solid #6b6b68;border-bottom:2px solid #6b6b68}
+  .hc-dash{position:absolute;background:repeating-linear-gradient(180deg,#d9cf72 0 14px,transparent 14px 30px);width:3px;top:0;bottom:0;left:calc(56% + 21px)}
+  .hc-sign{position:absolute;left:38%;top:26%;width:64px;height:44px;background:#fff;border-radius:6px;border:2px solid var(--brand);display:grid;place-items:center;font-size:9.5px;font-weight:800;color:var(--brand-deep);text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+  .hc-sign:after{content:"";position:absolute;bottom:-14px;left:50%;width:4px;height:14px;background:#8a8a86}
+  .hc-body{padding:16px 18px 18px}
+  .hc-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .hc-title{font-weight:680;font-size:15.5px}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:680;border-radius:99px;padding:3.5px 10px;background:var(--brand-wash-2);color:var(--brand-deep)}
+  .badge.gold{background:#fdf3e3;color:var(--amber)}
+  .hc-stats{display:flex;gap:0;margin-top:13px;border-top:1px solid var(--hairline);padding-top:13px}
+  .hc-stat{flex:1}
+  .hc-stat + .hc-stat{border-left:1px solid var(--hairline);padding-left:14px}
+  .stat-label{font-size:11.5px;color:var(--ink-3);font-weight:560}
+  .stat-value{font-size:21px;font-weight:680;letter-spacing:-.3px;margin-top:1px}
+  .stat-sub{font-size:11.5px;color:var(--ink-2)}
+
+  .strip{max-width:1120px;margin:26px auto 0;padding:0 26px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+  .tile .stat-value{font-size:26px}
+  .section{max-width:1120px;margin:0 auto;padding:58px 26px 8px}
+  .section h2{font-size:28px;letter-spacing:-.5px;margin-bottom:8px}
+  .section .sub{color:var(--ink-2);max-width:62ch;margin-bottom:28px}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .howcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+  .howcard h3{font-size:17px;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .who{font-size:11px;font-weight:750;letter-spacing:.7px;border-radius:99px;padding:3px 9px}
+  .who.h{background:var(--brand-wash-2);color:var(--brand-deep)} .who.b{background:#e8effb;color:#1c5cab}
+  .steps{display:flex;flex-direction:column;gap:13px}
+  .step{display:flex;gap:12px}
+  .stepnum{flex:0 0 26px;height:26px;border-radius:50%;background:var(--brand-wash-2);color:var(--brand-deep);display:grid;place-items:center;font-size:13px;font-weight:750}
+  .step b{display:block;font-weight:640}
+  .step span{color:var(--ink-2);font-size:13.5px}
+  .whygrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .why{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .why .ico{width:34px;height:34px;border-radius:9px;background:var(--brand-wash-2);display:grid;place-items:center;font-size:17px;margin-bottom:10px}
+  .why b{display:block;margin-bottom:4px}
+  .why span{font-size:13.5px;color:var(--ink-2)}
+  .footer{max-width:1120px;margin:54px auto 0;padding:22px 26px 34px;border-top:1px solid var(--hairline);display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;color:var(--ink-3);font-size:12.5px}
+
+  /* ---------- Wizard ---------- */
+  .wizwrap{max-width:1120px;margin:0 auto;padding:30px 26px 50px}
+  .crumbs{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+  .crumb{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:620;color:var(--ink-3)}
+  .crumb .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1.5px solid var(--hairline);font-size:12px;font-weight:700}
+  .crumb.on{color:var(--brand-deep)} .crumb.on .dot{background:var(--brand);border-color:var(--brand);color:#fff}
+  .crumb.done{color:var(--good-text)} .crumb.done .dot{background:var(--brand-wash-2);border-color:var(--brand-mid);color:var(--good-text)}
+  .crumb-sep{width:34px;height:1.5px;background:var(--hairline)}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:26px}
+  .addr-panel{max-width:620px;margin:40px auto;text-align:center;padding:42px 36px}
+  .addr-panel h2{font-size:26px;letter-spacing:-.4px}
+  .addr-panel p{color:var(--ink-2);margin:10px 0 24px}
+  .addr-row{display:flex;gap:10px}
+  .input{width:100%;border:1.5px solid var(--hairline);background:#fff;border-radius:11px;padding:12px 14px;font-size:15.5px}
+  .input:focus{outline:none;border-color:var(--brand-mid)}
+  label.f{display:block;text-align:left;font-size:12.5px;font-weight:640;color:var(--ink-2);margin:0 0 5px 2px}
+
+  .maplayout{display:grid;grid-template-columns:1fr 375px;gap:18px;align-items:start}
+  .mapcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .mapbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--hairline)}
+  .mapbar b{font-size:14.5px}
+  .map{height:470px;background:#2e3a2c;position:relative}
+  .map .tilefail{position:absolute;inset:0;display:none;place-items:center;color:#dfe6dd;text-align:center;font-size:13.5px;padding:30px;background:repeating-linear-gradient(45deg,#2e3a2c 0 30px,#354534 30px 60px)}
+  .maphint{padding:10px 16px;font-size:12.5px;color:var(--ink-3);border-top:1px solid var(--hairline);display:flex;gap:8px;align-items:center}
+  .sidecards{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+  .card h4{font-size:14.5px;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .card h4 .ci{width:26px;height:26px;border-radius:8px;background:var(--brand-wash-2);display:grid;place-items:center;font-size:14px}
+  .traffic-hero{display:flex;align-items:baseline;gap:8px}
+  .traffic-hero .n{font-size:34px;font-weight:730;letter-spacing:-1px}
+  .roadrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--hairline);font-size:13.5px}
+  .roadrow:first-of-type{border-top:0}
+  .roadrow .rn{font-weight:620}
+  .roadrow .rv{font-weight:680;font-variant-numeric:tabular-nums}
+  .roadrow .yr{color:var(--ink-3);font-size:11.5px;margin-left:6px}
+  .check{display:flex;gap:9px;padding:6.5px 0;font-size:13.5px;align-items:flex-start}
+  .check .ck{flex:0 0 18px;height:18px;border-radius:50%;background:var(--brand-wash-2);color:var(--good-text);display:grid;place-items:center;font-size:11px;font-weight:800;margin-top:1px}
+  .check.info .ck{background:#e8effb;color:#1c5cab}
+  .ratebox{display:flex;align-items:baseline;gap:6px}
+  .ratebox .n{font-size:34px;font-weight:730;letter-spacing:-1px}
+  input[type=range]{width:100%;accent-color:var(--brand);margin:10px 0 2px}
+  .rate-scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-3)}
+  .wiz-actions{display:flex;justify-content:space-between;margin-top:18px}
+
+  .preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  .listing-card{border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow-lg);background:#fff}
+  .lc-map{height:190px;position:relative;background:#2e3a2c}
+  .lc-body{padding:16px 18px}
+  .success{max-width:560px;margin:50px auto;text-align:center;padding:46px 40px}
+  .success .big{width:62px;height:62px;border-radius:50%;background:var(--brand-wash-2);color:var(--good-text);display:grid;place-items:center;font-size:28px;margin:0 auto 16px}
+
+  /* ---------- Business portal ---------- */
+  .portal{display:grid;grid-template-columns:400px 1fr;height:calc(100vh - 58px)}
+  .plist{border-right:1px solid var(--hairline);background:var(--surface);overflow-y:auto}
+  .plist-head{padding:18px 20px 12px;position:sticky;top:0;background:var(--surface);z-index:5;border-bottom:1px solid var(--hairline)}
+  .plist-head h2{font-size:19px;letter-spacing:-.3px}
+  .filters{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+  .chip{border:1px solid var(--hairline);background:#fff;border-radius:99px;padding:5px 12px;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+  .chip.on{background:var(--brand-wash-2);border-color:var(--brand-mid);color:var(--brand-deep)}
+  .lrow{display:flex;gap:13px;padding:15px 20px;border-bottom:1px solid var(--hairline);cursor:pointer}
+  .lrow:hover{background:var(--brand-wash)}
+  .lrow.sel{background:var(--brand-wash-2)}
+  .lthumb{flex:0 0 62px;height:62px;border-radius:11px;background:linear-gradient(135deg,#3a4a37,#2e3a2c);display:grid;place-items:center;color:#cfe0cd;font-size:20px}
+  .lrow .t{font-weight:650;font-size:14.5px}
+  .lrow .s{font-size:12.5px;color:var(--ink-2);margin:2px 0 5px}
+  .lmeta{display:flex;gap:12px;font-size:12.5px;color:var(--ink-2)}
+  .lmeta b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .lprice{margin-left:auto;text-align:right}
+  .lprice .p{font-weight:720;font-size:16px}
+  .lprice .per{font-size:11.5px;color:var(--ink-3)}
+  .pmap{position:relative}
+  #portalMap{position:absolute;inset:0}
+
+  /* Detail drawer */
+  .drawer{position:absolute;top:16px;right:16px;bottom:16px;width:430px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);z-index:900;display:none;flex-direction:column;overflow:hidden}
+  .drawer.open{display:flex}
+  .drawer-head{padding:16px 20px;border-bottom:1px solid var(--hairline);display:flex;align-items:flex-start;gap:10px}
+  .drawer-head h3{font-size:17px;letter-spacing:-.2px}
+  .xbtn{margin-left:auto;border:0;background:var(--page);width:30px;height:30px;border-radius:9px;font-size:15px;color:var(--ink-2)}
+  .drawer-body{padding:18px 20px;overflow-y:auto;flex:1}
+  .dstats{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:16px}
+  .dstat{border:1px solid var(--hairline);border-radius:var(--radius-sm);padding:11px 13px}
+  .dstat .stat-value{font-size:20px}
+  .fgroup{margin-bottom:15px}
+  .radio,.checkrow{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--hairline);border-radius:11px;padding:11px 13px;margin-bottom:8px;cursor:pointer}
+  .radio.on{border-color:var(--brand-mid);background:var(--brand-wash)}
+  .radio input{margin-top:3px;accent-color:var(--brand)}
+  .radio b{display:block;font-size:13.5px}
+  .radio span{font-size:12.5px;color:var(--ink-2)}
+  .upl{border:1.5px dashed var(--hairline);border-radius:11px;padding:16px;text-align:center;color:var(--ink-2);font-size:13px;cursor:pointer}
+  .upl:hover{border-color:var(--brand-mid);background:var(--brand-wash)}
+  .upl.done{border-style:solid;border-color:var(--brand-mid);background:var(--brand-wash);color:var(--good-text);font-weight:620}
+  .drawer-foot{padding:14px 20px;border-top:1px solid var(--hairline);background:var(--surface)}
+  .totalrow{display:flex;justify-content:space-between;font-size:13.5px;padding:3px 0}
+  .totalrow.grand{font-weight:720;font-size:15.5px;border-top:1px solid var(--hairline);margin-top:6px;padding-top:9px}
+
+  .sent{position:absolute;inset:0;background:var(--surface);z-index:5;display:none;place-items:center;text-align:center;padding:30px}
+  .sent.show{display:grid}
+
+  /* Sign marker */
+  .signpin{filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+  .leaflet-container{font:inherit}
+  .aadt-tip{font-weight:650}
+
+  /* toast */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:12px;font-size:14px;box-shadow:var(--shadow-lg);transition:transform .25s;z-index:2000}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:980px){
+    .hero{grid-template-columns:1fr;padding-top:40px}
+    .strip,.whygrid{grid-template-columns:1fr 1fr}
+    .cols2,.maplayout,.preview-grid{grid-template-columns:1fr}
+    .portal{grid-template-columns:1fr}
+    .plist{display:none}
+    .drawer{width:auto;left:16px}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wordmark" onclick="go('landing')"><div class="mark">Y</div>Yardtize</div>
+  <div class="navlinks">
+    <button class="navlink active" data-v="landing" onclick="go('landing')">How it works</button>
+    <button class="navlink" data-v="wizard" onclick="go('wizard')">List your yard</button>
+    <button class="navlink" data-v="portal" onclick="go('portal')">For businesses</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="proto-pill">CLICKABLE PROTOTYPE</span>
+  <button class="btn btn-ghost" onclick="toast('Accounts arrive in the working demo — click around freely!')">Sign in</button>
+</nav>
+
+<!-- ============ LANDING ============ -->
+<div class="view active" id="view-landing">
+  <div class="hero">
+    <div>
+      <h1>Your yard is <em>prime ad space</em>.<br>Get paid for it.</h1>
+      <p class="lead">Yardtize matches high-traffic yards with local businesses and campaigns that want eye-level visibility. We price your placement with official state traffic data, keep it compliant with your city's sign rules, paper the lease, and send you a check every month.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary btn-big" onclick="go('wizard')">List your yard →</button>
+        <button class="btn btn-ghost btn-big" onclick="go('portal')">Browse yards for your business</button>
+      </div>
+      <p class="tiny" style="margin-top:16px">One tasteful sign per yard. 48-hour takedown guarantee. Yardtize handles any city notice — and pays any fine.</p>
+    </div>
+    <div class="hero-card">
+      <div class="hc-map">
+        <div class="hc-road-v"></div><div class="hc-dash"></div><div class="hc-road-h"></div>
+        <div class="hc-sign">YOUR SIGN<br>HERE</div>
+      </div>
+      <div class="hc-body">
+        <div class="hc-row">
+          <div class="hc-title">3103 Karnes Blvd · Kansas City, MO</div>
+          <span class="badge gold">★ Featured corner</span>
+        </div>
+        <div class="tiny" style="margin-top:3px">Signalized intersection · SW Trafficway &amp; W 31st St</div>
+        <div class="hc-stats">
+          <div class="hc-stat"><div class="stat-label">Vehicles per day</div><div class="stat-value">44.4K</div><div class="stat-sub">MoDOT 2025</div></div>
+          <div class="hc-stat"><div class="stat-label">Suggested rate</div><div class="stat-value">$275</div><div class="stat-sub">per month</div></div>
+          <div class="hc-stat"><div class="stat-label">Stoplight dwell</div><div class="stat-value">Yes</div><div class="stat-sub">signalized ✓</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="tile"><div class="stat-label">Traffic data source</div><div class="stat-value">Official</div><div class="stat-sub">MoDOT &amp; KDOT annual counts</div></div>
+    <div class="tile"><div class="stat-label">Signs per yard</div><div class="stat-value">1</div><div class="stat-sub">always — a platform rule</div></div>
+    <div class="tile"><div class="stat-label">Compliance check</div><div class="stat-value">Built-in</div><div class="stat-sub">sized &amp; placed to your city's code</div></div>
+    <div class="tile"><div class="stat-label">Effort for homeowners</div><div class="stat-value">~0</div><div class="stat-sub">we handle install, lease &amp; billing</div></div>
+  </div>
+
+  <div class="section">
+    <h2>How it works</h2>
+    <p class="sub">A marketplace with two sides — and Yardtize managing everything in between: pricing, compliance, the lease, payments, and the sign itself.</p>
+    <div class="cols2">
+      <div class="howcard">
+        <h3><span class="who h">HOMEOWNERS</span> Turn traffic into income</h3>
+        <div class="steps">
+          <div class="step"><div class="stepnum">1</div><div><b>Enter your address</b><span>We pull up an aerial view of your property and the official traffic counts for the roads you front.</span></div></div>
+          <div class="step"><div class="stepnum">2</div><div><b>Place your sign spot</b><span>Drag the pin to where a sign could stand. We check your city's size and setback rules automatically.</span></div></div>
+          <div class="step"><div class="stepnum">3</div><div><b>Set your rate &amp; go live</b><span>Take our traffic-based suggested rate or set your own. Approve every advertiser. Get paid monthly.</span></div></div>
+        </div>
+      </div>
+      <div class="howcard">
+        <h3><span class="who b">BUSINESSES &amp; CAMPAIGNS</span> Own the best corners in town</h3>
+        <div class="steps">
+          <div class="step"><div class="stepnum">1</div><div><b>Browse by traffic</b><span>Every listing shows real vehicles-per-day from state DOT data — pick corners, not guesses.</span></div></div>
+          <div class="step"><div class="stepnum">2</div><div><b>Request a placement</b><span>Upload your sign design, pick a duration, and choose self-install (with deposit) or our install crew.</span></div></div>
+          <div class="step"><div class="stepnum">3</div><div><b>Sign &amp; go up</b><span>Owner approves, both parties e-sign the lease in-platform, and your sign is up within days.</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Why a yard beats a billboard</h2>
+    <p class="sub">Billboard rates are a function of traffic. So are ours — except your sign sits at eye level, at a red light, in front of a real home.</p>
+    <div class="whygrid">
+      <div class="why"><div class="ico">👁️</div><b>Eye level, not sky level</b><span>Drivers look at yards and corners — not up at the freeway blur.</span></div>
+      <div class="why"><div class="ico">🚦</div><b>Stoplight dwell time</b><span>A signalized corner means captive attention, 30–90 seconds at a time.</span></div>
+      <div class="why"><div class="ico">📊</div><b>Priced on real data</b><span>Rates come from official state AADT traffic counts, not vibes.</span></div>
+      <div class="why"><div class="ico">🛡️</div><b>Compliance built-in</b><span>Sign size, placement and duration checked against your city's code — with a 48-hour takedown guarantee.</span></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div><b style="color:var(--ink-2)">Yardtize</b> · Clickable prototype — all listings and rates are demo data. Traffic figures for 3103 Karnes Blvd are real MoDOT 2025 counts.</div>
+    <div>yardtize.com</div>
+  </div>
+</div>
+
+<!-- ============ HOMEOWNER WIZARD ============ -->
+<div class="view" id="view-wizard">
+  <div class="wizwrap">
+    <div class="crumbs">
+      <div class="crumb on" id="cr1"><div class="dot">1</div>Your address</div><div class="crumb-sep"></div>
+      <div class="crumb" id="cr2"><div class="dot">2</div>Place your sign</div><div class="crumb-sep"></div>
+      <div class="crumb" id="cr3"><div class="dot">3</div>Review &amp; publish</div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="wstep1">
+      <div class="panel addr-panel">
+        <h2>Where's the yard?</h2>
+        <p>We'll pull up an aerial view and the official traffic counts for the roads around you.</p>
+        <label class="f">Property address</label>
+        <div class="addr-row">
+          <input class="input" id="addrInput" value="3103 Karnes Blvd, Kansas City, MO 64111">
+          <button class="btn btn-primary" style="white-space:nowrap" onclick="wizStep(2)">Find my yard →</button>
+        </div>
+        <p class="tiny" style="margin-top:14px">Prototype note: any address works, but the demo is wired to this famous corner.</p>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="wstep2" style="display:none">
+      <div class="maplayout">
+        <div class="mapcard">
+          <div class="mapbar">
+            <b>3103 Karnes Blvd — drag the sign pin to where your sign would stand</b>
+            <span class="badge">Aerial view</span>
+          </div>
+          <div class="map" id="ownerMap"><div class="tilefail" id="ownerTilefail">Satellite imagery needs an internet connection.<br>The flow still works — the pin, traffic data and pricing are live.</div></div>
+          <div class="maphint">🚦 Highlighted roads carry official MoDOT traffic counts — hover them. Your rate updates as you move the pin closer to traffic.</div>
+        </div>
+        <div class="sidecards">
+          <div class="card">
+            <h4><span class="ci">🚗</span>Traffic value</h4>
+            <div class="traffic-hero"><span class="n" id="aadtHero">44,386</span><span class="tiny">vehicles/day at this corner</span></div>
+            <div style="margin-top:10px">
+              <div class="roadrow"><span class="rn">SW Trafficway <span class="yr">south of signal</span></span><span class="rv">33,316<span class="yr">2025</span></span></div>
+              <div class="roadrow"><span class="rn">W 31st St <span class="yr">at Trafficway</span></span><span class="rv">11,070<span class="yr">2025</span></span></div>
+              <div class="roadrow"><span class="rn">Intersection</span><span class="rv" style="color:var(--good-text)">Signalized ✓</span></div>
+            </div>
+            <div class="tiny" style="margin-top:8px">Source: MoDOT traffic monitoring system, latest annual counts.</div>
+          </div>
+          <div class="card">
+            <h4><span class="ci">✅</span>Compliance — Kansas City, MO</h4>
+            <div class="check"><div class="ck">✓</div><div>18×24″ sign = <b>3 sq ft</b> — under the city's 8 sq ft limit</div></div>
+            <div class="check"><div class="ck">✓</div><div>Under 4 ft tall · no permit needed below 10 sq ft</div></div>
+            <div class="check"><div class="ck">✓</div><div>One sign per yard — Yardtize rule, everywhere</div></div>
+            <div class="check info"><div class="ck">i</div><div>Keep the pin 5 ft inside your property line — we'll verify at install</div></div>
+          </div>
+          <div class="card">
+            <h4><span class="ci">💵</span>Your monthly rate</h4>
+            <div class="ratebox"><span class="n" id="rateN">$275</span><span class="tiny">/month suggested</span></div>
+            <input type="range" id="rateSlider" min="150" max="450" step="5" value="275" oninput="rateChanged(this.value)">
+            <div class="rate-scale"><span>$150</span><span id="rateHint">Suggested: $275</span><span>$450</span></div>
+            <div class="tiny" style="margin-top:8px">Suggested from traffic × an eye-level CPM. You approve every advertiser either way.</div>
+          </div>
+          <button class="btn btn-primary btn-big" style="width:100%" onclick="wizStep(3)">Preview my listing →</button>
+        </div>
+      </div>
+      <div class="wiz-actions"><button class="btn btn-ghost" onclick="wizStep(1)">← Back</button><span></span></div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="wstep3" style="display:none">
+      <div class="preview-grid">
+        <div>
+          <h2 style="font-size:26px;letter-spacing:-.4px">Ready to go live?</h2>
+          <p class="muted" style="margin:10px 0 20px;max-width:46ch">This is what businesses will see. You stay anonymous until you approve a request — advertisers see the corner and the traffic, not your name.</p>
+          <div class="card" style="margin-bottom:14px">
+            <h4><span class="ci">🤝</span>What happens next</h4>
+            <div class="check"><div class="ck">1</div><div>A business requests your yard with their sign design and dates</div></div>
+            <div class="check"><div class="ck">2</div><div><b>You approve or decline</b> — total control, every time</div></div>
+            <div class="check"><div class="ck">3</div><div>Both sides e-sign the Yardtize lease in-platform</div></div>
+            <div class="check"><div class="ck">4</div><div>Sign goes up · you get paid monthly · we guarantee removal</div></div>
+          </div>
+          <button class="btn btn-primary btn-big" onclick="publishListing()">Publish my listing</button>
+          <button class="btn btn-ghost btn-big" onclick="wizStep(2)" style="margin-left:8px">← Adjust</button>
+        </div>
+        <div class="listing-card">
+          <div class="lc-map" id="previewMap"></div>
+          <div class="lc-body">
+            <div class="hc-row"><div class="hc-title">Signalized corner · Midtown KC</div><span class="badge gold">★ Featured</span></div>
+            <div class="tiny" style="margin:3px 0 0">SW Trafficway &amp; W 31st St area · Kansas City, MO</div>
+            <div class="hc-stats">
+              <div class="hc-stat"><div class="stat-label">Vehicles/day</div><div class="stat-value">44.4K</div><div class="stat-sub">MoDOT 2025</div></div>
+              <div class="hc-stat"><div class="stat-label">Rate</div><div class="stat-value" id="previewRate">$275</div><div class="stat-sub">per month</div></div>
+              <div class="hc-stat"><div class="stat-label">Max sign</div><div class="stat-value">8 ft²</div><div class="stat-sub">city-compliant</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Published -->
+    <div id="wstep4" style="display:none">
+      <div class="panel success">
+        <div class="big">✓</div>
+        <h2 style="font-size:25px">Your yard is live on Yardtize</h2>
+        <p class="muted" style="margin:12px 0 22px">We'll email you the moment a business or campaign requests your corner. Most high-traffic listings get their first request within two weeks of an election window opening.</p>
+        <button class="btn btn-primary btn-big" onclick="go('portal')">See how businesses see it →</button>
+        <div class="tiny" style="margin-top:16px"><a href="#" onclick="wizStep(1);return false" style="color:var(--brand)">List another property</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BUSINESS PORTAL ============ -->
+<div class="view" id="view-portal">
+  <div class="portal">
+    <aside class="plist">
+      <div class="plist-head">
+        <h2>Kansas City yards</h2>
+        <div class="tiny" style="margin-top:2px">Sorted by traffic · demo listings</div>
+        <div class="filters">
+          <button class="chip on">All</button><button class="chip">Signalized</button><button class="chip">Corner lots</button><button class="chip">Election window</button><button class="chip">Under $250</button>
+        </div>
+      </div>
+      <div id="listRows"></div>
+      <div class="tiny" style="padding:16px 20px">Prototype: 6 seeded listings. Live version covers the metro, both sides of the state line.</div>
+    </aside>
+    <div class="pmap">
+      <div id="portalMap"></div>
+      <div class="drawer" id="drawer">
+        <div class="drawer-head">
+          <div>
+            <h3 id="dTitle">Listing</h3>
+            <div class="tiny" id="dSub">—</div>
+          </div>
+          <button class="xbtn" onclick="closeDrawer()">✕</button>
+        </div>
+        <div class="drawer-body" id="drawerBody">
+          <div class="dstats">
+            <div class="dstat"><div class="stat-label">Vehicles per day</div><div class="stat-value" id="dAadt">—</div><div class="stat-sub" id="dAadtSrc">state DOT</div></div>
+            <div class="dstat"><div class="stat-label">Monthly rate</div><div class="stat-value" id="dRate">—</div><div class="stat-sub">set by owner</div></div>
+          </div>
+          <div id="dBadges" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px"></div>
+
+          <div class="fgroup">
+            <label class="f">Your business or campaign</label>
+            <input class="input" placeholder="e.g., Heartland Roofing & Exteriors">
+          </div>
+          <div class="fgroup">
+            <label class="f">Sign size (all city-compliant)</label>
+            <select class="input" id="dSize">
+              <option>18 × 24 in — classic yard sign (3 sq ft)</option>
+              <option>24 × 36 in — large format (6 sq ft)</option>
+              <option>2 × 4 ft — maximum (8 sq ft)</option>
+            </select>
+          </div>
+          <div class="fgroup">
+            <label class="f">Duration</label>
+            <select class="input" id="dDur" onchange="recalcTotal()">
+              <option value="1">1 month</option>
+              <option value="3" selected>3 months</option>
+              <option value="6">6 months</option>
+              <option value="12">12 months</option>
+              <option value="ew">Election window · Sep 19 – Nov 5</option>
+            </select>
+          </div>
+          <div class="fgroup">
+            <label class="f">Installation &amp; removal</label>
+            <div class="radio on" id="r-self" onclick="pickInstall('self')">
+              <input type="radio" name="inst" checked>
+              <div><b>We'll install &amp; remove it ourselves</b><span>$500 refundable security deposit — returned when the sign comes down clean and on time.</span></div>
+            </div>
+            <div class="radio" id="r-yz" onclick="pickInstall('yz')">
+              <input type="radio" name="inst">
+              <div><b>Yardtize installs &amp; removes</b><span>+$99 each way. Our crew, our timeline, zero effort for anyone.</span></div>
+            </div>
+          </div>
+          <div class="fgroup">
+            <label class="f">Sign design</label>
+            <div class="upl" id="upl" onclick="fakeUpload()">⬆︎ Upload your rendering (PDF or image)<br><span class="tiny">The homeowner sees exactly what they're approving</span></div>
+          </div>
+          <div class="fgroup">
+            <label class="f">Message to the owner (optional)</label>
+            <textarea class="input" rows="2" placeholder="We're a local company — happy to offer a free spring cleanup with the placement."></textarea>
+          </div>
+        </div>
+        <div class="drawer-foot">
+          <div class="totalrow"><span class="muted">Placement (<span id="tDur">3 months</span>)</span><span id="tPlace">$825</span></div>
+          <div class="totalrow"><span class="muted" id="tInstLabel">Security deposit (refundable)</span><span id="tInst">$500</span></div>
+          <div class="totalrow"><span class="muted">Yardtize service fee (10%)</span><span id="tFee">$83</span></div>
+          <div class="totalrow grand"><span>Due today</span><span id="tGrand">$1,408</span></div>
+          <button class="btn btn-primary btn-big" style="width:100%;margin-top:10px" onclick="sendRequest()">Send request to owner →</button>
+          <div class="tiny" style="margin-top:8px;text-align:center">Charged only if the owner approves. Lease e-signed in-platform by both parties.</div>
+        </div>
+        <div class="sent" id="sentPane">
+          <div>
+            <div class="big" style="width:62px;height:62px;border-radius:50%;background:var(--brand-wash-2);color:var(--good-text);display:grid;place-items:center;font-size:28px;margin:0 auto 16px">✓</div>
+            <h3 style="font-size:20px;margin-bottom:10px">Request sent</h3>
+            <p class="muted" style="max-width:34ch;margin:0 auto 18px">The homeowner has 48 hours to approve. Then: e-sign the lease → payment into escrow → your sign is up within 5 business days.</p>
+            <button class="btn btn-ghost" onclick="closeDrawer()">Back to the map</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= data ================= */
+const KARNES = [39.0716,-94.5947];
+const LISTINGS = [
+  {id:1, t:"Signalized corner · Midtown KC", s:"SW Trafficway & W 31st St · Kansas City, MO", ll:[39.0716,-94.5947], aadt:44386, src:"MoDOT 2025 (real)", rate:275, badges:["🚦 Signalized","★ Featured","Corner lot"], featured:true},
+  {id:2, t:"Metcalf Ave frontage", s:"Metcalf & 95th area · Overland Park, KS", ll:[38.9556,-94.6674], aadt:39800, src:"KDOT (demo)", rate:310, badges:["🚦 Signalized","Corner lot"]},
+  {id:3, t:"W 135th St corner", s:"South Overland Park, KS", ll:[38.8886,-94.6693], aadt:27500, src:"KDOT (demo)", rate:230, badges:["Corner lot"]},
+  {id:4, t:"State Line Rd yard", s:"Near 75th St · state line", ll:[38.9968,-94.6077], aadt:23900, src:"demo", rate:210, badges:["🚦 Signalized"]},
+  {id:5, t:"Ward Parkway frontage", s:"Country Club district · KCMO", ll:[39.0182,-94.6062], aadt:18700, src:"MoDOT (demo)", rate:180, badges:["Boulevard"]},
+  {id:6, t:"Westport Rd bungalow", s:"Westport · Kansas City, MO", ll:[39.0512,-94.5934], aadt:14200, src:"MoDOT (demo)", rate:140, badges:["Walkable + drive-by"]},
+];
+
+/* ================= nav ================= */
+let maps = {};
+function go(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.navlink').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+  window.scrollTo(0,0);
+  if(v==='wizard' && wizCur===2) setTimeout(initOwnerMap,60);
+  if(v==='portal') setTimeout(initPortalMap,60);
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+/* ================= tiles ================= */
+function hasL(){ return typeof window.L !== 'undefined'; }
+function sat(map, failEl){
+  const l = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19, attribution:'Imagery © Esri'});
+  if(failEl){ let n=0; l.on('tileerror',()=>{ if(++n>3) failEl.style.display='grid'; }); l.on('tileload',()=>{ failEl.style.display='none'; }); }
+  l.addTo(map); return l;
+}
+function signIcon(){ return L.divIcon({className:'signpin', html:'<div style="width:46px;height:34px;background:#fff;border:2.5px solid #166534;border-radius:6px;display:grid;place-items:center;font:800 8px system-ui;color:#14532d;text-align:center;line-height:1.15">YOUR<br>SIGN</div><div style="width:4px;height:12px;background:#e5e5e0;margin:0 auto"></div>', iconSize:[46,46], iconAnchor:[23,46]}); }
+function dot(color){ return L.divIcon({className:'', html:'<div style="width:16px;height:16px;border-radius:50%;background:'+color+';border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>', iconSize:[16,16], iconAnchor:[8,8]}); }
+function mapFallback(el, msg){
+  el.innerHTML = '<div style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#dfe6dd;font-size:13.5px;padding:30px;background:linear-gradient(rgba(20,60,30,.25),rgba(20,60,30,.25)),repeating-linear-gradient(45deg,#2e3a2c 0 30px,#354534 30px 60px)"><div><div style="font-size:30px;margin-bottom:10px">🗺️</div>'+msg+'</div></div>';
+}
+
+/* ================= wizard ================= */
+let wizCur = 1;
+function wizStep(n){
+  wizCur = n;
+  [1,2,3,4].forEach(i=>document.getElementById('wstep'+i).style.display = (i===Math.min(n,4)?'':'none'));
+  const c1=document.getElementById('cr1'),c2=document.getElementById('cr2'),c3=document.getElementById('cr3');
+  [c1,c2,c3].forEach(c=>c.className='crumb');
+  if(n===1){c1.classList.add('on')}
+  if(n===2){c1.classList.add('done');c2.classList.add('on'); setTimeout(initOwnerMap,60)}
+  if(n===3){c1.classList.add('done');c2.classList.add('done');c3.classList.add('on'); setTimeout(initPreviewMap,60)}
+  if(n===4){c1.classList.add('done');c2.classList.add('done');c3.classList.add('done')}
+  window.scrollTo(0,0);
+}
+function initOwnerMap(){
+  if(!hasL()){ mapFallback(document.getElementById('ownerMap'),'Aerial imagery needs an internet connection.<br>Everything else — the traffic data, compliance check and pricing — is live below.'); return; }
+  if(maps.owner){ maps.owner.invalidateSize(); return; }
+  const m = L.map('ownerMap',{zoomControl:true, scrollWheelZoom:false}).setView(KARNES, 18);
+  maps.owner = m;
+  sat(m, document.getElementById('ownerTilefail'));
+  // AADT road overlays (approximate alignments for the prototype)
+  const trafficway = L.polyline([[39.0768,-94.5926],[39.0714,-94.5937],[39.0662,-94.5950]], {color:'#16a34a',weight:7,opacity:.85});
+  trafficway.bindTooltip('<span class="aadt-tip">SW Trafficway — 33,316 vehicles/day (MoDOT 2025)</span>',{sticky:true});
+  trafficway.addTo(m);
+  const w31 = L.polyline([[39.0710,-94.6010],[39.0713,-94.5937],[39.0716,-94.5870]], {color:'#86c99a',weight:6,opacity:.85});
+  w31.bindTooltip('<span class="aadt-tip">W 31st St — 11,070 vehicles/day (MoDOT 2025)</span>',{sticky:true});
+  w31.addTo(m);
+  const pin = L.marker(KARNES,{icon:signIcon(),draggable:true}).addTo(m);
+  pin.on('dragend',()=>{
+    const p = pin.getLatLng();
+    // distance (deg, rough) to the Trafficway line's mid point
+    const d = Math.hypot((p.lat-39.0714)*111000,(p.lng-(-94.5937))*87000); // meters-ish
+    let sug = d<40 ? 300 : d<80 ? 275 : d<140 ? 240 : 200;
+    document.getElementById('rateSlider').value = sug;
+    rateChanged(sug, true);
+    toast(d<40 ? 'Right on the corner — top of the range: $'+sug+'/mo' : 'Suggested rate updated: $'+sug+'/mo');
+  });
+}
+function initPreviewMap(){
+  if(!hasL()){ mapFallback(document.getElementById('previewMap'),'Aerial preview'); return; }
+  if(maps.prev){ maps.prev.invalidateSize(); return; }
+  const m = L.map('previewMap',{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,attributionControl:false}).setView(KARNES,17);
+  maps.prev = m; sat(m); L.marker(KARNES,{icon:signIcon()}).addTo(m);
+}
+function rateChanged(v, alsoHint){
+  document.getElementById('rateN').textContent = '$'+v;
+  document.getElementById('previewRate').textContent = '$'+v;
+  if(alsoHint) document.getElementById('rateHint').textContent = 'Suggested: $'+v;
+}
+function publishListing(){ wizStep(4); }
+
+/* ================= portal ================= */
+let selected = null, install = 'self';
+function initPortalMap(){
+  renderRows();
+  if(!hasL()){ mapFallback(document.getElementById('portalMap'),'The listing map needs an internet connection.<br>Use the list on the left — every listing opens the full booking flow.'); return; }
+  if(maps.portal){ maps.portal.invalidateSize(); return; }
+  const m = L.map('portalMap',{zoomControl:true}).setView([39.005,-94.615], 11);
+  maps.portal = m; sat(m);
+  LISTINGS.forEach(x=>{
+    const mk = L.marker(x.ll,{icon:dot(x.featured?'#eda100':'#16a34a')}).addTo(m);
+    mk.bindTooltip('<b>'+x.t+'</b><br>'+fmt(x.aadt)+' vehicles/day · $'+x.rate+'/mo');
+    mk.on('click',()=>openDrawer(x.id));
+  });
+}
+function fmt(n){ return n.toLocaleString('en-US'); }
+function renderRows(){
+  const el = document.getElementById('listRows');
+  el.innerHTML = LISTINGS.map(x=>`
+    <div class="lrow ${selected===x.id?'sel':''}" onclick="openDrawer(${x.id})">
+      <div class="lthumb">${x.featured?'★':'🏠'}</div>
+      <div style="flex:1">
+        <div class="t">${x.t}</div>
+        <div class="s">${x.s}</div>
+        <div class="lmeta"><span><b>${fmt(x.aadt)}</b> veh/day</span><span>${x.badges[0]||''}</span></div>
+      </div>
+      <div class="lprice"><div class="p">$${x.rate}</div><div class="per">/month</div></div>
+    </div>`).join('');
+}
+function openDrawer(id){
+  selected = id; renderRows();
+  const x = LISTINGS.find(l=>l.id===id);
+  document.getElementById('dTitle').textContent = x.t;
+  document.getElementById('dSub').textContent = x.s;
+  document.getElementById('dAadt').textContent = fmt(x.aadt);
+  document.getElementById('dAadtSrc').textContent = x.src;
+  document.getElementById('dRate').textContent = '$'+x.rate;
+  document.getElementById('dBadges').innerHTML = x.badges.map(b=>'<span class="badge'+(b.includes('★')?' gold':'')+'">'+b+'</span>').join('');
+  document.getElementById('sentPane').classList.remove('show');
+  document.getElementById('drawer').classList.add('open');
+  if(maps.portal) maps.portal.panTo(x.ll);
+  recalcTotal();
+}
+function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); selected=null; renderRows(); }
+function pickInstall(k){
+  install = k;
+  document.getElementById('r-self').classList.toggle('on', k==='self');
+  document.getElementById('r-yz').classList.toggle('on', k==='yz');
+  document.querySelector('#r-self input').checked = k==='self';
+  document.querySelector('#r-yz input').checked = k==='yz';
+  recalcTotal();
+}
+function recalcTotal(){
+  const x = LISTINGS.find(l=>l.id===selected); if(!x) return;
+  const durV = document.getElementById('dDur').value;
+  let months, durLabel;
+  if(durV==='ew'){ months = 1.6; durLabel = 'Election window'; } else { months = +durV; durLabel = durV+' month'+(durV>1?'s':''); }
+  const place = Math.round(x.rate*months);
+  const inst = install==='self' ? 500 : 198;
+  const fee = Math.round(place*.10);
+  document.getElementById('tDur').textContent = durLabel;
+  document.getElementById('tPlace').textContent = '$'+fmt(place);
+  document.getElementById('tInstLabel').textContent = install==='self' ? 'Security deposit (refundable)' : 'Yardtize install + removal';
+  document.getElementById('tInst').textContent = '$'+inst;
+  document.getElementById('tFee').textContent = '$'+fmt(fee);
+  document.getElementById('tGrand').textContent = '$'+fmt(place+inst+fee);
+}
+function fakeUpload(){
+  const u = document.getElementById('upl');
+  u.classList.add('done'); u.innerHTML = '✓ heartland-roofing-18x24.pdf uploaded';
+}
+function sendRequest(){ document.getElementById('sentPane').classList.add('show'); }
+
+/* boot */
+renderRows();
+</script>
+</body>
+</html>
