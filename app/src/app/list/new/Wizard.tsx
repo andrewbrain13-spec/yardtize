@@ -7,6 +7,7 @@ import { geocodeInBrowser } from "@/lib/maps-loader";
 import { SatelliteMap } from "./SatelliteMap";
 import type { CountedSegment } from "@/lib/traffic/types";
 import { CPM, RATE_CEILING, RATE_FLOOR, VISIBILITY_FACTOR } from "@/lib/rate";
+import { money } from "@/lib/money";
 
 type LatLng = { lat: number; lng: number };
 
@@ -366,7 +367,7 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
                 </div>
                 <div className="flex-1 border-l border-hairline pl-3.5">
                   <div className="text-[11.5px] text-ink-3 font-medium">Rate</div>
-                  <div className="text-[21px] font-bold">${rate ?? "—"}</div>
+                  <div className="text-[21px] font-bold">{money(rate)}</div>
                   <div className="text-[11.5px] text-ink-2">per month</div>
                 </div>
                 <div className="flex-1 border-l border-hairline pl-3.5">
@@ -497,7 +498,7 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
             ) : (
               <>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-[34px] font-bold tracking-[-1px]">${rate}</span>
+                  <span className="text-[34px] font-bold tracking-[-1px]">{money(rate)}</span>
                   <span className="text-[12.5px] text-ink-3">
                     /month {edited ? "(yours)" : "suggested"}
                   </span>
@@ -514,9 +515,9 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
                   className="w-full accent-brand my-2.5"
                 />
                 <div className="flex justify-between text-[11.5px] text-ink-3">
-                  <span>${sliderMin}</span>
-                  {suggested !== null && <span>Suggested: ${suggested}</span>}
-                  <span>${sliderMax}</span>
+                  <span>{money(sliderMin)}</span>
+                  {suggested !== null && <span>Suggested: {money(suggested)}</span>}
+                  <span>{money(sliderMax)}</span>
                 </div>
                 {traffic?.aadtSum != null && traffic.monthlyImpressions != null && (
                   <p className="text-[12.5px] text-ink-3 mt-2">

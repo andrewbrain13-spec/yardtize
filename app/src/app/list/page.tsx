@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Badge, ButtonLink, Card } from "@/components/ui";
 import { createClient, getSessionProfile } from "@/lib/supabase/server";
+import { money } from "@/lib/money";
 
 export const metadata: Metadata = { title: "List your yard — Yardtize" };
 
@@ -80,7 +81,7 @@ export default async function ListPage() {
               <span className="flex items-center gap-2.5 shrink-0">
                 {l.signalized && <Badge>🚦</Badge>}
                 <span className="text-right">
-                  <b className="block text-[16px]">${l.monthly_rate}</b>
+                  <b className="block text-[16px]">{money(l.monthly_rate)}</b>
                   <span className="text-[11.5px] text-ink-3">{l.status}</span>
                 </span>
               </span>

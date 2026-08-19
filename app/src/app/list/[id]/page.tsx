@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Badge, ButtonLink, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { evaluateCompliance } from "@/lib/compliance";
+import { money } from "@/lib/money";
 import type { Jurisdiction, TrafficSegmentRow } from "@/lib/supabase/types";
 
 export const metadata: Metadata = { title: "Your listing — Yardtize" };
@@ -89,10 +90,10 @@ export default async function ListingPage({
           </div>
           <div className="border border-hairline rounded-[10px] px-3.5 py-3">
             <div className="text-[11.5px] text-ink-3 font-medium">Monthly rate</div>
-            <div className="text-[21px] font-bold">${listing.monthly_rate}</div>
+            <div className="text-[21px] font-bold">{money(listing.monthly_rate)}</div>
             <div className="text-[11.5px] text-ink-2">
               {listing.suggested_rate && listing.suggested_rate !== listing.monthly_rate
-                ? `you set this · suggested $${listing.suggested_rate}`
+                ? `you set this · suggested ${money(listing.suggested_rate)}`
                 : "set by you"}
             </div>
           </div>

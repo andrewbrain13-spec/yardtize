@@ -1,6 +1,7 @@
 import { Badge, Stat } from "../ui";
 import { KARNES, KARNES_AADT_SUM, KARNES_TRAFFIC_SOURCE } from "@/lib/karnes";
 import { suggestRate } from "@/lib/rate";
+import { money } from "@/lib/money";
 
 const rate = suggestRate({
   aadtSum: KARNES_AADT_SUM,
@@ -59,7 +60,7 @@ export function FeaturedCorner() {
           <div className="border-l border-hairline pl-3.5 flex-1">
             <Stat
               label="Suggested rate"
-              value={`$${rate.monthly}`}
+              value={money(rate.monthly)}
               sub="per month"
             />
           </div>

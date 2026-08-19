@@ -5,12 +5,13 @@ import { Badge, ButtonLink, Card } from "@/components/ui";
 import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import type { Listing, PlacementRequest, RequestStatus } from "@/lib/supabase/types";
 import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
+import { money } from "@/lib/money";
 import { DecisionButtons } from "./DecisionButtons";
 
 export const metadata: Metadata = { title: "Your requests — Yardtize" };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
-const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+
 
 const STATUS_COPY: Record<RequestStatus, { label: string; blurb: string }> = {
   requested: { label: "Awaiting you", blurb: "Review the design and decide." },

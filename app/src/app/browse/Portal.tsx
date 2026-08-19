@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { money } from "@/lib/money";
 import type { AdvertiserType } from "@/lib/supabase/types";
 import { ListingsMap } from "./ListingsMap";
 import { submitRequest, type RequestState } from "./actions";
@@ -39,7 +40,7 @@ export type PortalListing = {
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
-const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+
 
 const ADVERTISERS: Array<{ value: AdvertiserType; label: string; hint: string }> = [
   { value: "business", label: "Business", hint: "A for-profit company" },
@@ -161,7 +162,7 @@ export function Portal({
               </span>
               <span className="text-right shrink-0">
                 <span className="block font-bold text-[16px]">
-                  {l.rate ? `$${l.rate}` : "—"}
+                  {money(l.rate)}
                 </span>
                 <span className="block text-[11.5px] text-ink-3">/month</span>
               </span>
@@ -308,7 +309,7 @@ function Drawer({
           <div className="border border-hairline rounded-[10px] px-3 py-2.5">
             <div className="text-[11.5px] text-ink-3 font-medium">Monthly rate</div>
             <div className="text-[20px] font-bold">
-              {listing.rate ? `$${listing.rate}` : "—"}
+              {money(listing.rate)}
             </div>
             <div className="text-[11.5px] text-ink-2">set by owner</div>
           </div>
