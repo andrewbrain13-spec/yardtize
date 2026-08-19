@@ -9,9 +9,9 @@ export const metadata: Metadata = { title: "Sign in — Yardtize" };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
 
   // Already signed in? Skip straight to where they were headed.
   try {
@@ -31,7 +31,7 @@ export default async function SignInPage({
           List a yard or advertise on one. Same sign-in either way — you pick
           which on the next screen.
         </p>
-        <SignInForm next={next} />
+        <SignInForm next={next} initialError={error} />
       </Card>
     </div>
   );

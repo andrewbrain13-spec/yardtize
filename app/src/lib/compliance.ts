@@ -152,3 +152,81 @@ export function evaluateCompliance(
     citations: jurisdiction.citations ?? [],
   };
 }
+
+export type AdvertiserFit = {
+  allowed: boolean;
+  /** Set when this jurisdiction only permits the message under a named product. */
+  product?: string;
+  reason: string;
+};
+
+/**
+ * Whether a given advertiser may legally place a sign on this listing.
+ *
+ * This is the rule that makes the marketplace defensible rather than naive.
+ * Both pilot cities prohibit off-site *commercial* signage, and the Supreme
+ * Court upheld exactly that kind of ban in City of Austin v. Reagan (2022), so
+ * we cannot sell a for-profit ad into a residential yard and hope. What the
+ * codes turn on is the content-to-premises relationship, never who paid:
+ *
+ *  - Campaign and other noncommercial messages are fine in both cities.
+ *  - Nonprofits fall outside Overland Park's definition entirely, which covers
+ *    for-profit advertisers only.
+ *  - For-profit businesses are blocked, except on an Overland Park corner lot,
+ *    where § 18.440.130.G carves out a weekend sign that § 18.440.020.A
+ *    explicitly exempts from the off-site prohibition.
+ */
+export function evaluateAdvertiserFit(
+  jurisdiction: Jurisdiction,
+  advertiserType: "business" | "campaign" | "nonprofit",
+  cornerLot: boolean,
+): AdvertiserFit {
+  const rules = jurisdiction.rules as JurisdictionRules;
+  const city = `${jurisdiction.name}, ${jurisdiction.state}`;
+
+  if (!jurisdiction.is_verified) {
+    return {
+      allowed: false,
+      reason: `We haven't verified ${city}'s sign code yet, so we don't offer paid placements here. Compliance review is pending.`,
+    };
+  }
+
+  if (advertiserType === "campaign") {
+    return {
+      allowed: true,
+      reason: rules.political.statute
+        ? `Political signs are protected here (${rules.political.statute}) and are unrestricted during the election window.`
+        : `${city} allows noncommercial and political messages year-round within the size rules.`,
+    };
+  }
+
+  if (advertiserType === "nonprofit") {
+    return rules.nonprofit_exempt
+      ? {
+          allowed: true,
+          reason: `${city}'s off-site restriction covers for-profit advertisers only, so nonprofits are outside it entirely.`,
+        }
+      : {
+          allowed: true,
+          reason: `Noncommercial messages are permitted in ${city} within the size rules.`,
+        };
+  }
+
+  // For-profit business from here down.
+  if (rules.commercial_offpremise_allowed) {
+    return { allowed: true, reason: `${city} permits off-site commercial signs.` };
+  }
+
+  if (rules.weekend_corner?.allowed && cornerLot) {
+    return {
+      allowed: true,
+      product: "Weekend corner",
+      reason: `${city} bans off-site commercial signs, except one extra sign on a corner lot from ${rules.weekend_corner.window}. This placement is offered on that basis only — up to ${rules.weekend_corner.max_sqft_per_face} sq ft per face and ${rules.weekend_corner.max_height_ft} ft tall.`,
+    };
+  }
+
+  return {
+    allowed: false,
+    reason: `${city} prohibits off-site commercial signs in residential yards, so we can't offer a for-profit placement here. Campaign and nonprofit messages are unrestricted, and Overland Park corner lots can host commercial signs at weekends.`,
+  };
+}

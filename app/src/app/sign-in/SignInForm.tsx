@@ -16,8 +16,19 @@ function SubmitButton() {
   );
 }
 
-export function SignInForm({ next }: { next?: string }) {
+export function SignInForm({
+  next,
+  initialError,
+}: {
+  next?: string;
+  initialError?: string;
+}) {
   const [state, formAction] = useActionState(sendMagicLink, INITIAL);
+
+  // An expired or already-used link redirects here with ?error=. Without this
+  // the visitor just saw an empty form and no explanation.
+  const message = state.status === "error" ? state.message : initialError;
+  const showError = Boolean(message) && state.status !== "sent";
 
   if (state.status === "sent") {
     return (
@@ -51,12 +62,12 @@ export function SignInForm({ next }: { next?: string }) {
         required
         placeholder="you@example.com"
         defaultValue={state.email}
-        aria-describedby={state.status === "error" ? "signin-error" : undefined}
+        aria-describedby={showError ? "signin-error" : undefined}
         className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-3 text-[15.5px] focus:outline-none focus:border-brand-mid"
       />
-      {state.status === "error" ? (
+      {showError ? (
         <p id="signin-error" role="alert" className="text-[13px] text-amber bg-amber-wash border border-amber-edge rounded-[9px] px-3 py-2">
-          {state.message}
+          {message}
         </p>
       ) : null}
       <SubmitButton />

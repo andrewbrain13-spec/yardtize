@@ -3,5 +3,8 @@
   "framework": "nextjs",
   "installCommand": "cd app && npm install",
   "buildCommand": "cd app && npm run build -- --webpack",
-  "outputDirectory": "app/.next"
+  "outputDirectory": "app/.next",
+  "crons": [
+    { "path": "/api/keep-alive", "schedule": "0 13 * * *" }
+  ]
 }
