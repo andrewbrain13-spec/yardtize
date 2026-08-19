@@ -6,5 +6,13 @@
   "outputDirectory": "app/.next",
   "crons": [
     { "path": "/api/keep-alive", "schedule": "0 13 * * *" }
+  ],
+  "redirects": [
+    {
+      "source": "/:path((?!api/).*)",
+      "has": [{ "type": "host", "value": "yardtize.vercel.app" }],
+      "destination": "https://www.yardtize.com/:path",
+      "permanent": false
+    }
   ]
 }
