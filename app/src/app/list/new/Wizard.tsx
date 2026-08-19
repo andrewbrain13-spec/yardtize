@@ -6,7 +6,7 @@ import { attachJurisdiction, publishListing, type LookupState } from "./actions"
 import { geocodeInBrowser } from "@/lib/maps-loader";
 import { SatelliteMap } from "./SatelliteMap";
 import type { CountedSegment } from "@/lib/traffic/types";
-import { CPM, VISIBILITY_FACTOR } from "@/lib/rate";
+import { CPM, RATE_CEILING, RATE_FLOOR, VISIBILITY_FACTOR } from "@/lib/rate";
 
 type LatLng = { lat: number; lng: number };
 
@@ -385,8 +385,8 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
   /* --------------------------------- step 2 -------------------------------- */
 
   const suggested = traffic?.suggested ?? null;
-  const sliderMin = Math.max(40, Math.round(((suggested ?? 100) * 0.5) / 5) * 5);
-  const sliderMax = Math.min(600, Math.round(((suggested ?? 300) * 1.6) / 5) * 5);
+  const sliderMin = Math.max(RATE_FLOOR, Math.round(((suggested ?? 100) * 0.5) / 5) * 5);
+  const sliderMax = Math.min(RATE_CEILING, Math.round(((suggested ?? 300) * 1.6) / 5) * 5);
 
   return (
     <div className="max-w-[1120px] mx-auto px-[26px] pt-[30px] pb-[50px]">

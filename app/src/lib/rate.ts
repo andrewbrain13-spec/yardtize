@@ -29,13 +29,35 @@ export const CPM = 4;
 export const DAYS_PER_MONTH = 30;
 
 /**
- * Share of passing traffic that actually registers the sign. Deliberately
- * conservative for the pilot; revisit once real placements produce data.
+ * Share of passing traffic credited as actually registering the sign.
+ *
+ * The out-of-home industry calls this a Visibility Adjustment Index, and
+ * Geopath derives real ones from eye-tracking studies weighing sign size,
+ * distance from the road, road type and illumination. Those figures are not
+ * published, and no public rate card exists for renting a residential yard, so
+ * this number is a business decision rather than a measured constant — set
+ * deliberately high because a yard sign sits at eye level and, on a signalized
+ * corner, in front of stopped traffic.
+ *
+ * It is worth knowing which way the evidence we do have points. The informal
+ * market clears at \$10-50/month for an ordinary yard, and Grass Spaces asks
+ * \$30-40/week; at 75% an ordinary 5,000-vehicle street prices near
+ * \$450/month, several times either. Against that, a much lower factor
+ * flattened every street between 1,000 and 10,000 vehicles onto the price
+ * floor, which is precisely the range most homeowners live on and left the
+ * engine unable to tell those yards apart at all.
+ *
+ * Revisit once real bookings — or a proper visibility study — say otherwise.
  */
-export const VISIBILITY_FACTOR = 0.04;
+export const VISIBILITY_FACTOR = 0.75;
 
 export const RATE_FLOOR = 40;
-export const RATE_CEILING = 600;
+/**
+ * Raised alongside the visibility factor: at 75% a premium signalized corner
+ * prices near \$5,700, so a \$600 cap would have pinned every good listing to
+ * the same number and hidden the differences the engine exists to surface.
+ */
+export const RATE_CEILING = 6000;
 
 export const MULTIPLIERS = {
   signalized: 1.25,
