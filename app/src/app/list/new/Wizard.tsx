@@ -6,6 +6,7 @@ import { attachJurisdiction, publishListing, type LookupState } from "./actions"
 import { geocodeInBrowser } from "@/lib/maps-loader";
 import { SatelliteMap } from "./SatelliteMap";
 import type { CountedSegment } from "@/lib/traffic/types";
+import { CPM, VISIBILITY_FACTOR } from "@/lib/rate";
 
 type LatLng = { lat: number; lng: number };
 
@@ -16,6 +17,8 @@ type TrafficData = {
   source: string | null;
   year: number | null;
   suggested: number | null;
+  monthlyImpressions: number | null;
+  visibleImpressions: number | null;
 };
 
 const EMPTY: Omit<TrafficData, "error"> = {
@@ -24,6 +27,8 @@ const EMPTY: Omit<TrafficData, "error"> = {
   source: null,
   year: null,
   suggested: null,
+  monthlyImpressions: null,
+  visibleImpressions: null,
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
@@ -185,6 +190,8 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
                 source: body.traffic.source,
                 year: body.traffic.year,
                 suggested: body.rate?.monthly ?? null,
+                monthlyImpressions: body.rate?.monthlyImpressions ?? null,
+                visibleImpressions: body.rate?.visibleImpressions ?? null,
               }
             : { ...EMPTY, error: body.error ?? "Traffic lookup failed." },
         });
@@ -511,9 +518,16 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
                   {suggested !== null && <span>Suggested: ${suggested}</span>}
                   <span>${sliderMax}</span>
                 </div>
-                {traffic?.aadtSum != null && (
+                {traffic?.aadtSum != null && traffic.monthlyImpressions != null && (
                   <p className="text-[12.5px] text-ink-3 mt-2">
-                    {fmt(traffic.aadtSum)} vehicles/day × $6 per thousand
+                    {fmt(traffic.aadtSum)} vehicles/day is{" "}
+                    <b className="text-ink-2">
+                      {(traffic.monthlyImpressions / 1_000_000).toFixed(2)}M
+                    </b>{" "}
+                    passes a month. We price the{" "}
+                    {Math.round(VISIBILITY_FACTOR * 100)}% a small eye-level sign
+                    realistically earns — {fmt(traffic.visibleImpressions ?? 0)}{" "}
+                    impressions at ${CPM} per thousand
                     {signalized && " × 1.25 signalized"}
                     {cornerLot && " × 1.15 corner"}. You approve every advertiser
                     either way.

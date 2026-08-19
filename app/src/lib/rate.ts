@@ -1,17 +1,39 @@
 /**
- * Rate suggestion v1 — see CLAUDE.md "Rate suggestion v1".
+ * Rate suggestion v1.
  *
- *   suggested = clamp(round_to_5(AADT_sum / 1000 * $6), $40, $600)
+ *   monthly impressions = AADT × DAYS_PER_MONTH
+ *   visible impressions = monthly impressions × VISIBILITY_FACTOR
+ *   suggested           = clamp(round_to_5(visible / 1000 × CPM × multipliers))
  *
- * with multipliers for a signalized intersection, a corner lot, and the
- * election window. Multipliers apply to the raw figure; rounding and clamping
- * happen last so the published number is always a clean $5 step inside the band.
+ * Two things make this defensible rather than a fudge:
  *
- * The brand promise is that the math is visible, so `suggestRate` returns the
- * full working, not just the answer.
+ * CPM means cost per thousand *impressions*, and AADT counts vehicles per
+ * *day*, so a monthly price has to multiply by the days in the month. An
+ * earlier version skipped that and quietly priced a single day as if it were a
+ * month.
+ *
+ * Multiplying by 30 alone, though, prices a 3 sq ft yard sign as if every
+ * passing driver read it like a billboard — which put the anchor corner at
+ * roughly $7,600 a month, above mid-metro billboard rates. Outdoor advertising
+ * handles this with visibility-adjusted impressions: only a fraction of passing
+ * traffic actually registers a given piece of inventory, and a small sign at
+ * eye level earns a small fraction. That fraction is stated here as one number
+ * rather than buried in a rounded-down CPM, so it can be argued about, tested
+ * against real bookings, and raised as the market proves itself.
  */
 
-export const CPM_PER_1K_VEHICLES = 6;
+/** Cost per thousand visible impressions. */
+export const CPM = 4;
+
+/** Billing month used to turn a daily traffic count into monthly impressions. */
+export const DAYS_PER_MONTH = 30;
+
+/**
+ * Share of passing traffic that actually registers the sign. Deliberately
+ * conservative for the pilot; revisit once real placements produce data.
+ */
+export const VISIBILITY_FACTOR = 0.04;
+
 export const RATE_FLOOR = 40;
 export const RATE_CEILING = 600;
 
@@ -38,11 +60,14 @@ export type RateInput = {
 };
 
 export type RateBreakdown = {
-  /** The final published figure, in whole dollars per month. */
+  /** The published figure, in whole dollars per month. */
   monthly: number;
-  /** Traffic value before any multiplier, unrounded. */
+  /** Vehicle passes per month before any visibility adjustment. */
+  monthlyImpressions: number;
+  /** Impressions credited after the visibility adjustment. */
+  visibleImpressions: number;
+  /** Price from traffic alone, before multipliers. */
   base: number;
-  /** Which multipliers were applied, in order. */
   applied: Array<{ factor: RateFactor; label: string; multiplier: number }>;
   /** After multipliers, before rounding and clamping. */
   raw: number;
@@ -52,7 +77,9 @@ export type RateBreakdown = {
 const roundToNearest5 = (n: number) => Math.round(n / 5) * 5;
 
 export function suggestRate(input: RateInput): RateBreakdown {
-  const base = (input.aadtSum / 1000) * CPM_PER_1K_VEHICLES;
+  const monthlyImpressions = input.aadtSum * DAYS_PER_MONTH;
+  const visibleImpressions = monthlyImpressions * VISIBILITY_FACTOR;
+  const base = (visibleImpressions / 1000) * CPM;
 
   const applied = (Object.keys(MULTIPLIERS) as RateFactor[])
     .filter((factor) => input[factor])
@@ -66,5 +93,13 @@ export function suggestRate(input: RateInput): RateBreakdown {
   const rounded = roundToNearest5(raw);
   const monthly = Math.min(Math.max(rounded, RATE_FLOOR), RATE_CEILING);
 
-  return { monthly, base, applied, raw, clamped: monthly !== rounded };
+  return {
+    monthly,
+    monthlyImpressions: Math.round(monthlyImpressions),
+    visibleImpressions: Math.round(visibleImpressions),
+    base,
+    applied,
+    raw,
+    clamped: monthly !== rounded,
+  };
 }
