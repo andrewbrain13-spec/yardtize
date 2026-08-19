@@ -130,9 +130,35 @@ export function Portal({
         </div>
 
         {visible.length === 0 ? (
-          <p className="px-5 py-8 text-[13.5px] text-ink-2">
-            No listings match that filter yet.
-          </p>
+          <div className="px-5 py-8">
+            {listings.length === 0 ? (
+              <>
+                <b className="block text-[14.5px] mb-1.5">No yards listed yet</b>
+                <p className="text-[13.5px] text-ink-2">
+                  We&rsquo;re signing up homeowners across the Kansas City metro
+                  now. Check back shortly — or list your own yard and be first on
+                  the map.
+                </p>
+                <Link href="/list" className={`${buttonClass("ghost")} mt-3.5`}>
+                  List your yard
+                </Link>
+              </>
+            ) : (
+              <>
+                <b className="block text-[14.5px] mb-1.5">Nothing matches that filter</b>
+                <p className="text-[13.5px] text-ink-2">
+                  {listings.length} {listings.length === 1 ? "yard is" : "yards are"}{" "}
+                  live right now. Try a different filter.
+                </p>
+                <button
+                  onClick={() => setFilter("all")}
+                  className={`${buttonClass("ghost")} mt-3.5`}
+                >
+                  Show all listings
+                </button>
+              </>
+            )}
+          </div>
         ) : (
           visible.map((l) => (
             <button
@@ -256,7 +282,7 @@ function Drawer({
 
   if (state.status === "sent") {
     return (
-      <aside className="absolute inset-4 lg:left-auto lg:w-[430px] bg-surface border border-edge rounded-panel shadow-lift z-20 grid place-items-center text-center p-8">
+      <aside className="fixed inset-0 z-[60] lg:absolute lg:inset-4 lg:left-auto lg:w-[430px] lg:z-20 bg-surface border border-edge lg:rounded-panel shadow-lift grid place-items-center text-center p-8">
         <div>
           <div className="grid place-items-center w-[62px] h-[62px] mx-auto mb-4 rounded-full bg-brand-wash-2 text-good-text text-[28px]">
             ✓
@@ -275,7 +301,7 @@ function Drawer({
   }
 
   return (
-    <aside className="absolute inset-4 lg:left-auto lg:w-[430px] bg-surface border border-edge rounded-panel shadow-lift z-20 flex flex-col overflow-hidden">
+    <aside className="fixed inset-0 z-[60] lg:absolute lg:inset-4 lg:left-auto lg:w-[430px] lg:z-20 bg-surface border border-edge lg:rounded-panel shadow-lift flex flex-col overflow-hidden">
       <header className="flex items-start gap-2.5 px-5 py-4 border-b border-hairline">
         <div>
           <h2 className="text-[17px] tracking-[-0.2px]">{listing.headline}</h2>
