@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
+import { useEffect, useState, useTransition } from "react";
 import { buttonClass, Badge, Card } from "@/components/ui";
-import { lookupAddress, publishListing, type LookupState } from "./actions";
+import { attachJurisdiction, publishListing, type LookupState } from "./actions";
+import { geocodeInBrowser } from "@/lib/maps-loader";
 import { SatelliteMap } from "./SatelliteMap";
 import type { CountedSegment } from "@/lib/traffic/types";
 
@@ -65,22 +65,55 @@ function Crumbs({ step }: { step: number }) {
   );
 }
 
-function SubmitButton({ children, pendingLabel }: { children: string; pendingLabel: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending} className={`${buttonClass()} whitespace-nowrap disabled:opacity-60`}>
-      {pending ? pendingLabel : children}
-    </button>
-  );
-}
-
 /* ---------------------------------- wizard -------------------------------- */
 
 export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
-  const [lookup, lookupAction] = useActionState<LookupState, FormData>(lookupAddress, {
-    status: "idle",
-  });
+  const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
+  const [searching, setSearching] = useState(false);
   const found = lookup.status === "found" ? lookup : null;
+
+  /*
+   * The address is resolved in the browser and only then handed to the server,
+   * which attaches the city's sign rules. Geocoding cannot run server-side
+   * here: the Maps key is restricted by website referrer, and Google refuses
+   * those keys on server-to-server calls.
+   */
+  async function onSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = String(new FormData(event.currentTarget).get("address") ?? "").trim();
+    if (query.length < 5) {
+      setLookup({ status: "error", message: "Please enter a full street address.", query });
+      return;
+    }
+    if (!mapsApiKey) {
+      setLookup({
+        status: "error",
+        message: "Address lookup isn't configured on this deployment yet.",
+        query,
+      });
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const address = await geocodeInBrowser(mapsApiKey, query);
+      setLookup(await attachJurisdiction(address));
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      setLookup({
+        status: "error",
+        query,
+        message:
+          code === "NO_RESULTS"
+            ? "We couldn't find that address. Try including the city and state."
+            : code === "NO_CITY"
+              ? "That looks incomplete — we need a city to check sign rules."
+              : "The address service didn't respond. Please try again.",
+      });
+    } finally {
+      setSearching(false);
+    }
+  }
 
   /*
    * Navigation and the pin are stored against the address they belong to.
@@ -216,7 +249,7 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
             We&rsquo;ll pull up an aerial view and the official traffic counts for
             the roads around you.
           </p>
-          <form action={lookupAction}>
+          <form onSubmit={onSearch}>
             <label htmlFor="address" className="block text-left text-[12.5px] font-semibold text-ink-2 mb-1.5 ml-0.5">
               Property address
             </label>
@@ -226,11 +259,17 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
                 name="address"
                 required
                 autoComplete="street-address"
-                defaultValue={lookup.status === "error" ? lookup.query : ""}
+                defaultValue={lookup.status === "error" ? (lookup.query ?? "") : ""}
                 placeholder="3103 Karnes Blvd, Kansas City, MO 64111"
                 className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-3 text-[15.5px] focus:outline-none focus:border-brand-mid"
               />
-              <SubmitButton pendingLabel="Finding…">Find my yard →</SubmitButton>
+              <button
+                type="submit"
+                disabled={searching}
+                className={`${buttonClass()} whitespace-nowrap disabled:opacity-60`}
+              >
+                {searching ? "Finding…" : "Find my yard →"}
+              </button>
             </div>
             {lookup.status === "error" && (
               <p role="alert" className="text-[13px] text-amber bg-amber-wash border border-amber-edge rounded-[9px] px-3 py-2 mt-3 text-left">

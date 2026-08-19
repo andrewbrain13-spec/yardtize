@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { geocodeAddress, type GeocodedAddress } from "@/lib/geocode";
+import type { GeocodedAddress } from "@/lib/geocode";
 import { findJurisdiction, evaluateCompliance, type ComplianceReport } from "@/lib/compliance";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,27 +17,28 @@ export type LookupState =
       };
     };
 
-/** Step 1: turn a typed address into coordinates and that city's sign rules. */
-export async function lookupAddress(
-  _prev: LookupState,
-  formData: FormData,
+/**
+ * Step 1: attach a city's sign rules to an address the browser has already
+ * resolved.
+ *
+ * Geocoding happens in the browser rather than here because the Maps key is
+ * restricted by website referrer, and Google rejects those keys on
+ * server-to-server calls. Coordinates arriving from the client are only ever
+ * used to pick a rules row and centre a map, never to assert a traffic count —
+ * those are fetched server-side from the state DOT.
+ */
+export async function attachJurisdiction(
+  address: GeocodedAddress,
 ): Promise<LookupState> {
-  const query = String(formData.get("address") ?? "").trim();
-  if (query.length < 5) {
-    return { status: "error", message: "Please enter a full street address.", query };
+  if (!address?.city || !address.state) {
+    return { status: "error", message: "That address is missing a city, so we can't check sign rules." };
   }
 
-  const result = await geocodeAddress(query);
-  if (!result.ok) return { status: "error", message: result.reason, query };
-
-  const address = result.address;
   const jurisdiction = await findJurisdiction(address.city, address.state);
-
   if (!jurisdiction) {
     return {
       status: "error",
       message: "We couldn't load sign rules for that city. Please try again in a moment.",
-      query,
     };
   }
 

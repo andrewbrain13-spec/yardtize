@@ -1,19 +1,77 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/ComingSoon";
+import { createClient, getSessionProfile } from "@/lib/supabase/server";
+import { evaluateAdvertiserFit, evaluateCompliance } from "@/lib/compliance";
+import type { AdvertiserType, Jurisdiction, Listing } from "@/lib/supabase/types";
+import { Portal, type PortalListing } from "./Portal";
 
-export const metadata: Metadata = { title: "For businesses — Yardtize" };
+export const metadata: Metadata = { title: "Yards for your business — Yardtize" };
 
-export default function BrowsePage() {
+const TYPES: AdvertiserType[] = ["business", "campaign", "nonprofit"];
+
+export default async function BrowsePage() {
+  const supabase = await createClient();
+  const session = await getSessionProfile().catch(() => null);
+
+  const { data: rows } = await supabase
+    .from("listings")
+    .select("*")
+    .eq("status", "live")
+    .order("aadt_sum", { ascending: false, nullsFirst: false });
+
+  const listings = (rows ?? []) as Listing[];
+
+  const ids = [...new Set(listings.map((l) => l.jurisdiction_id).filter(Boolean))] as string[];
+  const { data: jRows } = ids.length
+    ? await supabase.from("jurisdictions").select("*").in("id", ids)
+    : { data: [] };
+  const byId = new Map((jRows ?? []).map((j) => [j.id, j as Jurisdiction]));
+
+  const prepared: PortalListing[] = listings.map((l) => {
+    const j = l.jurisdiction_id ? byId.get(l.jurisdiction_id) : undefined;
+    const report = j ? evaluateCompliance(j, { cornerLot: l.corner_lot }) : null;
+
+    return {
+      id: l.id,
+      headline: l.headline ?? `${l.city} frontage`,
+      city: l.city,
+      state: l.state,
+      lat: l.lat,
+      lng: l.lng,
+      aadt: l.aadt_sum,
+      trafficSource: l.traffic_source,
+      trafficYear: l.traffic_year,
+      segments: (l.traffic_segments ?? []).map((s) => ({
+        road: s.road,
+        aadt: s.aadt,
+        source: s.source,
+        year: s.year,
+      })),
+      rate: l.monthly_rate,
+      signalized: l.signalized,
+      cornerLot: l.corner_lot,
+      isDemo: l.is_demo,
+      jurisdictionName: j ? `${j.name}, ${j.state}` : "Compliance review pending",
+      complianceChecks: report?.checks ?? [],
+      sizes: (report?.allowedSizes ?? []).map((s) => ({ label: s.label, sqft: s.sqft })),
+      fits: Object.fromEntries(
+        TYPES.map((t) => [
+          t,
+          j
+            ? evaluateAdvertiserFit(j, t, l.corner_lot)
+            : {
+                allowed: false,
+                reason: "We haven't verified this city's sign code yet, so placements aren't offered here.",
+              },
+        ]),
+      ) as PortalListing["fits"],
+    };
+  });
+
   return (
-    <ComingSoon
-      eyebrow="NEXT IN THE BUILD"
-      title="Yards for your business"
-      blurb="The business portal is on its way: a map of live Kansas City metro listings, ranked by the traffic that actually passes them."
-      bullets={[
-        "Browse every listing with real vehicles-per-day from state DOT data, plus badges for signalized corners and corner lots.",
-        "Request a placement with your sign rendering, size, and duration — including the Sep 19–Nov 5 election window.",
-        "Choose self-install or a Yardtize install crew. The homeowner reviews your design and approves.",
-      ]}
+    <Portal
+      listings={prepared}
+      mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null}
+      userId={session?.user?.id ?? null}
     />
   );
 }
