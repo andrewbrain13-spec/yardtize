@@ -24,14 +24,19 @@ export default async function DashboardPage() {
         </p>
         <p className="text-ink-2 mb-7">
           {isHomeowner
-            ? "Your listing wizard and request inbox arrive in the next two milestones. Accounts, roles and the database behind them are live now."
-            : "The listing map and booking flow arrive in the next two milestones. Accounts, roles and the database behind them are live now."}
+            ? "List a yard, then approve or decline the businesses and campaigns that ask for it."
+            : "Browse yards ranked by the traffic that passes them, and request the corners that fit your campaign."}
         </p>
 
         <div className="flex gap-3 flex-wrap">
           <ButtonLink href={isHomeowner ? "/list" : "/browse"}>
             {isHomeowner ? "List your yard" : "Browse yards"}
           </ButtonLink>
+          {isHomeowner && (
+            <ButtonLink href="/inbox" variant="ghost">
+              Placement requests
+            </ButtonLink>
+          )}
           <form action="/auth/signout" method="post">
             <button type="submit" className="px-[17px] py-2.5 rounded-[11px] text-[15px] font-semibold border border-edge text-ink hover:brightness-[1.06]">
               Sign out
