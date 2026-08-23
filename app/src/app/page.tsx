@@ -3,6 +3,7 @@ import { StatStrip } from "@/components/landing/StatStrip";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { WhyYard } from "@/components/landing/WhyYard";
 import { ComingNext } from "@/components/landing/ComingNext";
+import { Elsewhere } from "@/components/landing/Elsewhere";
 
 export default function Home() {
   return (
@@ -11,6 +12,7 @@ export default function Home() {
       <StatStrip />
       <HowItWorks />
       <WhyYard />
+      <Elsewhere />
       <ComingNext />
     </>
   );

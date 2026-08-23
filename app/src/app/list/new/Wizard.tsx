@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { buttonClass, Badge, Card } from "@/components/ui";
+import { WaitlistForm } from "@/components/WaitlistForm";
 import { attachJurisdiction, publishListing, type LookupState } from "./actions";
 import { geocodeInBrowser } from "@/lib/maps-loader";
 import { SatelliteMap } from "./SatelliteMap";
@@ -486,6 +487,29 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
             ))}
             {compliance.citations.length > 0 && (
               <p className="text-[11.5px] text-ink-3 mt-2">{compliance.citations.join(" · ")}</p>
+            )}
+
+            {/*
+              An unverified city means we are falling back to conservative
+              defaults rather than that city's actual code. Publishing is still
+              allowed — the badge says what we don't know — but this is the
+              moment to find out we should read that code next.
+            */}
+            {!compliance.verified && (
+              <div className="mt-3 pt-3 border-t border-hairline">
+                <p className="text-[13px] text-ink-2 mb-2.5">
+                  We haven&rsquo;t read {found.address.city}&rsquo;s sign code line
+                  by line yet, so these are conservative defaults. Want us to?
+                </p>
+                <WaitlistForm
+                  source="wizard-unverified-city"
+                  role="homeowner"
+                  city={found.address.city}
+                  state={found.address.state}
+                  askPlace={false}
+                  label="Yes — tell me"
+                />
+              </div>
             )}
           </Card>
 

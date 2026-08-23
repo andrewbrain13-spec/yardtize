@@ -64,6 +64,8 @@ export type Profile = {
   email: string;
   role: UserRole | null;
   full_name: string | null;
+  /** Operator access to /admin. Not editable by the account itself — see 0008. */
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 };

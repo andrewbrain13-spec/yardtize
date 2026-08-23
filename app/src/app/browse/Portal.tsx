@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui";
+import { WaitlistForm } from "@/components/WaitlistForm";
 import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/money";
 import type { AdvertiserType } from "@/lib/supabase/types";
@@ -200,6 +201,20 @@ export function Portal({
             </button>
           ))
         )}
+        {/*
+          Every advertiser scrolling to the bottom of a Kansas City list is
+          telling us something if they aren't in Kansas City. Cheaper to ask
+          than to infer.
+        */}
+        <div className="px-5 py-4 border-t border-hairline">
+          <b className="block text-[13.5px] mb-1">Need yards in another city?</b>
+          <p className="text-[12.5px] text-ink-2 mb-2.5">
+            The KC metro is the pilot. Tell us where you advertise and we&rsquo;ll
+            open that market next.
+          </p>
+          <WaitlistForm source="browse-other-market" role="business" label="Add me" />
+        </div>
+
         <p className="px-5 py-4 text-[12.5px] text-ink-3">
           Traffic counts come from state DOT data. Yards marked “Demo” are seeded
           examples and can&rsquo;t be booked.

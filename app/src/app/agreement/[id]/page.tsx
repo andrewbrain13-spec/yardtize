@@ -138,10 +138,16 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
         </header>
 
         <Section title="1. Parties">
+          {/* A name is worth more than an email on a document meant to be signed,
+              but nobody is blocked from printing one for want of it. */}
           <Pair
             label="Property owner"
-            value={owner.data?.full_name ?? "—"}
-            sub={owner.data?.email ?? ""}
+            value={owner.data?.full_name || (owner.data?.email ?? "—")}
+            sub={
+              owner.data?.full_name
+                ? (owner.data.email ?? "")
+                : "Name to be written in at signing"
+            }
           />
           <Pair
             label="Advertiser"

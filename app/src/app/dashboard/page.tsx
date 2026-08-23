@@ -6,6 +6,7 @@ import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import { money } from "@/lib/money";
 import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
 import type { PlacementRequest, PublicListing, RequestStatus } from "@/lib/supabase/types";
+import { NameField } from "./NameField";
 
 /*
  * The advertiser's half of the status flow. The homeowner sees the same five
@@ -71,6 +72,8 @@ export default async function DashboardPage() {
             : "Browse yards ranked by the traffic that passes them, and request the corners that fit your campaign."}
         </p>
 
+        <NameField current={session.profile.full_name} />
+
         <div className="flex gap-3 flex-wrap">
           <ButtonLink href={isHomeowner ? "/list" : "/browse"}>
             {isHomeowner ? "List your yard" : "Browse yards"}
@@ -78,6 +81,12 @@ export default async function DashboardPage() {
           {isHomeowner && (
             <ButtonLink href="/inbox" variant="ghost">
               Placement requests
+            </ButtonLink>
+          )}
+          {/* The only link to /admin anywhere; the page itself 404s for everyone else. */}
+          {session.profile.is_admin && (
+            <ButtonLink href="/admin" variant="ghost">
+              Operations
             </ButtonLink>
           )}
           <form action="/auth/signout" method="post">
