@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
-import { getSessionProfile } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin";
 import { money } from "@/lib/money";
 import type {
   Listing,
@@ -39,13 +37,7 @@ const STATUS_TONE: Record<RequestStatus, "brand" | "gold"> = {
  * which the account holder cannot set on themselves.
  */
 export default async function AdminPage() {
-  const session = await getSessionProfile();
-  if (!session?.user) redirect("/sign-in?next=/admin");
-
-  // 404 rather than 403: a page nobody else should know exists.
-  if (!session.profile?.is_admin) notFound();
-
-  const admin = createAdminClient();
+  const { admin } = await requireAdmin("/admin");
   if (!admin) {
     return (
       <div className="max-w-[720px] mx-auto px-[26px] py-[70px]">
@@ -96,6 +88,12 @@ export default async function AdminPage() {
         <span className="text-[12.5px] text-ink-3">
           Everything across every account. Only you see this.
         </span>
+        <Link
+          href="/admin/jurisdictions"
+          className="text-[13px] font-semibold text-brand-deep underline underline-offset-2"
+        >
+          Cities &amp; sign codes →
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-7">

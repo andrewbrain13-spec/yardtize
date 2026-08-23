@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function Footer() {
   return (
     <footer className="max-w-[1120px] mx-auto mt-[54px] px-[26px] pt-[22px] pb-[34px] border-t border-hairline flex justify-between gap-[18px] flex-wrap text-ink-3 text-[12.5px]">
@@ -6,7 +8,12 @@ export function Footer() {
         Blvd are real MoDOT 2025 counts. Sign rules shown are summarized from
         published city code and are not legal advice.
       </div>
-      <div>yardtize.com</div>
+      <div className="flex gap-4">
+        <Link href="/coverage" className="hover:text-ink-2">
+          Where we operate
+        </Link>
+        <span>yardtize.com</span>
+      </div>
     </footer>
   );
 }

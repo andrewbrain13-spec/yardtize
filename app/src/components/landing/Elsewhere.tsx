@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { WaitlistForm } from "@/components/WaitlistForm";
 
 /**
@@ -25,7 +26,11 @@ export function Elsewhere() {
           <div>
             <WaitlistForm source="landing" label="Add me" />
             <p className="text-[12px] text-ink-3 mt-2.5">
-              One email when Yardtize reaches your city. No newsletter.
+              One email when Yardtize reaches your city. No newsletter.{" "}
+              <Link href="/coverage" className="text-brand-deep underline underline-offset-2">
+                See where we operate
+              </Link>
+              .
             </p>
           </div>
         </div>
