@@ -175,6 +175,11 @@ export function Portal({
                 <span className="block font-semibold text-[14.5px]">{l.headline}</span>
                 <span className="block text-[12.5px] text-ink-2 mt-0.5 mb-1">
                   {l.city}, {l.state}
+                  {l.isDemo && (
+                    <span className="ml-1.5 rounded-full bg-amber-wash border border-amber-edge text-amber px-1.5 py-[1px] text-[10.5px] font-semibold align-[1px]">
+                      Demo
+                    </span>
+                  )}
                 </span>
                 <span className="flex gap-3 text-[12.5px] text-ink-2 flex-wrap">
                   <span>
@@ -196,8 +201,8 @@ export function Portal({
           ))
         )}
         <p className="px-5 py-4 text-[12.5px] text-ink-3">
-          Traffic counts come from state DOT data. Listings marked “demo data” are
-          seeded examples.
+          Traffic counts come from state DOT data. Yards marked “Demo” are seeded
+          examples and can&rsquo;t be booked.
         </p>
       </aside>
 
@@ -307,7 +312,7 @@ function Drawer({
           <h2 className="text-[17px] tracking-[-0.2px]">{listing.headline}</h2>
           <p className="text-[12.5px] text-ink-3">
             {listing.city}, {listing.state}
-            {listing.isDemo && " · demo data"}
+            {listing.isDemo && " · seeded example"}
           </p>
         </div>
         <button
@@ -539,8 +544,16 @@ function Drawer({
             </p>
           )}
 
+          {listing.isDemo && (
+            <p className="text-[13px] text-amber bg-amber-wash border border-amber-edge rounded-[9px] px-3 py-2 mt-3">
+              <b>This is a demonstration listing.</b> It shows what a real corner
+              looks like on Yardtize, with real traffic data — but no homeowner
+              is behind it to answer, so it can&rsquo;t be requested.
+            </p>
+          )}
+
           {userId ? (
-            <SubmitButton disabled={!fit.allowed} />
+            <SubmitButton disabled={!fit.allowed || listing.isDemo} />
           ) : (
             <Link href="/sign-in?next=/browse" className={`${buttonClass("primary", "big")} w-full mt-2.5`}>
               Sign in to request →

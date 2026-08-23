@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import { evaluateAdvertiserFit, evaluateCompliance } from "@/lib/compliance";
-import type { AdvertiserType, Jurisdiction, Listing } from "@/lib/supabase/types";
+import type { AdvertiserType, Jurisdiction, PublicListing } from "@/lib/supabase/types";
 import { Portal, type PortalListing } from "./Portal";
 
 export const metadata: Metadata = { title: "Yards for your business — Yardtize" };
@@ -12,13 +12,17 @@ export default async function BrowsePage() {
   const supabase = await createClient();
   const session = await getSessionProfile().catch(() => null);
 
+  /*
+   * listings_public, not listings: the base table no longer hands a whole row
+   * to anyone who asks. The view carries what the marketplace is shopped on and
+   * leaves out the street address and the exact pin — see migration 0006.
+   */
   const { data: rows } = await supabase
-    .from("listings")
+    .from("listings_public")
     .select("*")
-    .eq("status", "live")
     .order("aadt_sum", { ascending: false, nullsFirst: false });
 
-  const listings = (rows ?? []) as Listing[];
+  const listings = (rows ?? []) as PublicListing[];
 
   const ids = [...new Set(listings.map((l) => l.jurisdiction_id).filter(Boolean))] as string[];
   const { data: jRows } = ids.length

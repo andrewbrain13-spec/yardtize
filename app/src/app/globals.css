@@ -49,3 +49,29 @@ h4 {
   line-height: 1.2;
   font-weight: 650;
 }
+
+/*
+ * Print. The placement agreement is meant to come out of a printer and be
+ * signed by hand, so site chrome — sticky nav, footer, page tint — has to get
+ * out of the way. Scoped to @media print, so nothing here affects the screen.
+ */
+@page {
+  margin: 16mm;
+}
+
+@media print {
+  nav,
+  footer {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    font-size: 12.5px;
+  }
+
+  a[href] {
+    text-decoration: none;
+    color: inherit;
+  }
+}

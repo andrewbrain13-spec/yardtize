@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getSiteOrigin } from "@/lib/site-url";
+import { notifyRequesterOfDecision } from "@/lib/notifications";
 import type { RequestStatus } from "@/lib/supabase/types";
 
 export type DecisionState = { error?: string };
@@ -57,6 +59,18 @@ export async function decideRequest(
 
   const { error } = await supabase.from("requests").update({ status: next }).eq("id", id);
   if (error) return { error: error.message };
+
+  /*
+   * Only the two decisions the advertiser is waiting on get an email. Moving a
+   * placement to active or completed is the homeowner's own bookkeeping, and
+   * mailing about it would train people to ignore us.
+   */
+  if (next === "approved" || next === "declined") {
+    const result = await notifyRequesterOfDecision(id, next, await getSiteOrigin());
+    if (!result.sent && result.reason === "failed") {
+      console.error("[notify] decision email failed:", result.detail);
+    }
+  }
 
   revalidatePath("/inbox");
   return {};

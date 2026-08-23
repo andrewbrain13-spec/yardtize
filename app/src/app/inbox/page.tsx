@@ -168,6 +168,16 @@ export default async function InboxPage() {
 
                 <p className="text-[12.5px] text-ink-3 mb-3">{status.blurb}</p>
                 <DecisionButtons requestId={r.id} status={r.status} />
+
+                {/* Only worth offering once there is something agreed to print. */}
+                {(r.status === "approved" || r.status === "active") && (
+                  <Link
+                    href={`/agreement/${r.id}`}
+                    className="inline-block mt-3 text-[13px] font-semibold text-brand-deep underline underline-offset-2"
+                  >
+                    Placement summary to print and sign →
+                  </Link>
+                )}
               </Card>
             );
           })}

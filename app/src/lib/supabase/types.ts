@@ -125,6 +125,29 @@ export type PlacementRequest = {
   updated_at: string;
 };
 
+/**
+ * The columns of a live listing that anyone may see — what the marketplace is
+ * shopped on. `street_address` is deliberately absent, and the coordinates are
+ * rounded to about a block, so a yard can be found and judged without being
+ * pinpointed before its owner has approved anyone. See migration 0006.
+ */
+export type PublicListing = Omit<
+  Listing,
+  "owner_id" | "street_address" | "sign_lat" | "sign_lng" | "suggested_rate" | "updated_at"
+>;
+
+/** What Yardtize knows about someone it can't serve yet. */
+export type WaitlistEntry = {
+  id: string;
+  email: string;
+  role: UserRole | null;
+  city: string | null;
+  state: string | null;
+  note: string | null;
+  source: string;
+  created_at: string;
+};
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -153,8 +176,11 @@ export type Database = {
       listings: Table<Listing>;
       requests: Table<PlacementRequest>;
       aadt_cache: Table<AadtCacheRow>;
+      waitlist: Table<WaitlistEntry>;
     };
-    Views: Record<string, never>;
+    Views: {
+      listings_public: Table<PublicListing>;
+    };
     Functions: Record<string, never>;
     Enums: {
       user_role: UserRole;
