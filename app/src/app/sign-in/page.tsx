@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/ui";
 import { getSessionProfile } from "@/lib/supabase/server";
 import { SignInForm } from "./SignInForm";
+import { CodeForm } from "./CodeForm";
 
 export const metadata: Metadata = { title: "Sign in — Yardtize" };
 
@@ -32,6 +33,7 @@ export default async function SignInPage({
           which on the next screen.
         </p>
         <SignInForm next={next} initialError={error} />
+        <CodeForm next={next} />
       </Card>
     </div>
   );

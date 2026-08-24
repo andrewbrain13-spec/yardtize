@@ -59,7 +59,15 @@ export async function signInWithCode(
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
 
   if (error) {
-    return { error: "That code didn't work. It lasts an hour — ask for a new one below." };
+    /*
+     * Supabase retires a code on the first wrong attempt, so "try again" would
+     * be bad advice — a second attempt with the right code fails too. Verified
+     * by testing: a wrong entry followed by the correct one is refused.
+     */
+    return {
+      error:
+        "That code didn't work, and a wrong entry retires it. Ask for a fresh email above and use the new code.",
+    };
   }
 
   redirect(await destination(next));

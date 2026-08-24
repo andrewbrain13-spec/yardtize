@@ -45,7 +45,7 @@ export function SignInForm({
         <p className="text-[12.5px] text-ink-3 mt-4">
           No email after a minute? Check your spam folder.
         </p>
-        <CodeForm email={state.email ?? ""} next={next} />
+        <CodeForm email={state.email ?? ""} next={next} open />
       </div>
     );
   }
