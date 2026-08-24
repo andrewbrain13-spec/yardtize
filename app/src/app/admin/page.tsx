@@ -38,15 +38,63 @@ const STATUS_TONE: Record<RequestStatus, "brand" | "gold"> = {
  */
 export default async function AdminPage() {
   const { admin } = await requireAdmin("/admin");
+
+  /*
+   * Environment variables are invisible from outside the deployment, so
+   * "did that key actually land?" was a question only a failed email could
+   * answer. Booleans only — a value must never reach a rendered page.
+   *
+   * Computed before anything else so it renders even when a key is missing.
+   * The first version bailed out early on a missing secret key and took this
+   * panel with it, hiding the diagnosis exactly when it was needed.
+   */
+  const CONFIG = [
+    {
+      name: "SUPABASE_SECRET_KEY",
+      label: "Supabase secret key",
+      present: Boolean(process.env.SUPABASE_SECRET_KEY),
+      whenSet: "This screen and the notification emails can read across accounts.",
+      whenMissing:
+        "Supabase → Project Settings → API Keys → the secret key. Add it in Vercel, tick Production, then redeploy.",
+    },
+    {
+      name: "RESEND_API_KEY",
+      label: "Resend key",
+      present: Boolean(process.env.RESEND_API_KEY),
+      whenSet: `Sending as ${process.env.EMAIL_FROM ?? "notifications@yardtize.com"}.`,
+      whenMissing:
+        "Notification emails are skipped silently. The Vercel variable must be named exactly RESEND_API_KEY.",
+    },
+    {
+      name: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+      label: "Google Maps key",
+      present: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
+      whenSet: "Satellite view and address lookup are working.",
+      whenMissing: "The listing wizard can't show a map or find an address.",
+    },
+  ];
+
   if (!admin) {
     return (
-      <div className="max-w-[720px] mx-auto px-[26px] py-[70px]">
-        <Card className="p-[32px]">
-          <h1 className="text-[22px]">Operations</h1>
-          <p className="text-ink-2 mt-2.5">
-            SUPABASE_SECRET_KEY isn&rsquo;t set on this deployment, so this screen
-            has nothing to read. Add it in the Vercel project settings.
-          </p>
+      <div className="max-w-[1060px] mx-auto px-[26px] py-[52px]">
+        <h1 className="text-[26px] tracking-[-0.4px] mb-1">Operations</h1>
+        <p className="text-ink-2 mb-6 max-w-[58ch]">
+          Reading across accounts needs the Supabase secret key, and this
+          deployment doesn&rsquo;t have it — so there&rsquo;s nothing to show
+          yet. Here is what did and didn&rsquo;t arrive.
+        </p>
+        <ConfigPanel config={CONFIG} />
+        <Card className="p-[22px] mt-4">
+          <h2 className="text-[17px] tracking-[-0.3px] mb-2">Adding a key</h2>
+          <ol className="text-[13.5px] text-ink-2 list-decimal pl-5 flex flex-col gap-1.5">
+            <li>vercel.com → the <b>yardtize</b> project → Settings → Environment Variables.</li>
+            <li>Add it under the exact name above. Tick <b>Production</b>.</li>
+            <li>
+              Deployments → the newest one → ⋯ → <b>Redeploy</b>. A variable only
+              reaches a build that happens after it was saved, which is the
+              usual reason a key looks set but isn&rsquo;t.
+            </li>
+          </ol>
         </Card>
       </div>
     );
@@ -63,36 +111,6 @@ export default async function AdminPage() {
   const requests = (requestsRes.data ?? []) as PlacementRequest[];
   const profiles = (profilesRes.data ?? []) as Profile[];
   const waitlist = (waitlistRes.data ?? []) as WaitlistEntry[];
-
-  /*
-   * Environment variables are invisible from outside the deployment, so
-   * "did that key actually land?" was a question only a failed email could
-   * answer. Booleans only — a value must never reach a rendered page.
-   */
-  const CONFIG = [
-    {
-      name: "SUPABASE_SECRET_KEY",
-      label: "Supabase secret key",
-      present: Boolean(process.env.SUPABASE_SECRET_KEY),
-      whenSet: "This screen and the notification emails can read across accounts.",
-      whenMissing: "Add it in Vercel → Settings → Environment Variables, then redeploy.",
-    },
-    {
-      name: "RESEND_API_KEY",
-      label: "Resend key",
-      present: Boolean(process.env.RESEND_API_KEY),
-      whenSet: `Sending as ${process.env.EMAIL_FROM ?? "notifications@yardtize.com"}.`,
-      whenMissing:
-        "Notification emails are skipped silently. The variable must be named exactly RESEND_API_KEY.",
-    },
-    {
-      name: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
-      label: "Google Maps key",
-      present: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
-      whenSet: "Satellite view and address lookup are working.",
-      whenMissing: "The listing wizard can't show a map or find an address.",
-    },
-  ];
 
   const listingById = new Map(listings.map((l) => [l.id, l]));
   const emailById = new Map(profiles.map((p) => [p.id, p.email]));
@@ -134,25 +152,7 @@ export default async function AdminPage() {
         <Tile label="Booked run-rate" value={money(runRate)} sub={`${booked.length} live or approved`} />
       </div>
 
-      <Panel title="Deployment" count={CONFIG.length}>
-        <p className="text-[12.5px] text-ink-2 mb-2">
-          Whether each server-side key reached this deployment. Names only —
-          the values are never read into a page.
-        </p>
-        {CONFIG.map((c) => (
-          <Line key={c.name}>
-            <span className="min-w-0">
-              <b className="block text-[14px]">{c.label}</b>
-              <span className="text-[12.5px] text-ink-2">
-                {c.present ? c.whenSet : c.whenMissing}
-              </span>
-            </span>
-            <Badge tone={c.present ? "brand" : "gold"}>
-              {c.present ? "set" : "missing"}
-            </Badge>
-          </Line>
-        ))}
-      </Panel>
+      <ConfigPanel config={CONFIG} />
 
       <Panel title="Requests" count={requests.length}>
         {requests.length === 0 ? (
@@ -234,6 +234,39 @@ export default async function AdminPage() {
         )}
       </Panel>
     </div>
+  );
+}
+
+type ConfigRow = {
+  name: string;
+  label: string;
+  present: boolean;
+  whenSet: string;
+  whenMissing: string;
+};
+
+function ConfigPanel({ config }: { config: ConfigRow[] }) {
+  return (
+    <Panel title="Deployment" count={config.length}>
+      <p className="text-[12.5px] text-ink-2 mb-2">
+        Whether each server-side key reached this deployment. Names and yes/no
+        only — a value is never read into a page.
+      </p>
+      {config.map((c) => (
+        <Line key={c.name}>
+          <span className="min-w-0">
+            <b className="block text-[14px]">{c.label}</b>
+            <span className="text-[12px] font-mono text-ink-3">{c.name}</span>
+            <span className="block text-[12.5px] text-ink-2">
+              {c.present ? c.whenSet : c.whenMissing}
+            </span>
+          </span>
+          <Badge tone={c.present ? "brand" : "gold"}>
+            {c.present ? "set" : "missing"}
+          </Badge>
+        </Line>
+      ))}
+    </Panel>
   );
 }
 
