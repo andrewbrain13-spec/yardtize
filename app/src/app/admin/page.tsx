@@ -64,6 +64,36 @@ export default async function AdminPage() {
   const profiles = (profilesRes.data ?? []) as Profile[];
   const waitlist = (waitlistRes.data ?? []) as WaitlistEntry[];
 
+  /*
+   * Environment variables are invisible from outside the deployment, so
+   * "did that key actually land?" was a question only a failed email could
+   * answer. Booleans only — a value must never reach a rendered page.
+   */
+  const CONFIG = [
+    {
+      name: "SUPABASE_SECRET_KEY",
+      label: "Supabase secret key",
+      present: Boolean(process.env.SUPABASE_SECRET_KEY),
+      whenSet: "This screen and the notification emails can read across accounts.",
+      whenMissing: "Add it in Vercel → Settings → Environment Variables, then redeploy.",
+    },
+    {
+      name: "RESEND_API_KEY",
+      label: "Resend key",
+      present: Boolean(process.env.RESEND_API_KEY),
+      whenSet: `Sending as ${process.env.EMAIL_FROM ?? "notifications@yardtize.com"}.`,
+      whenMissing:
+        "Notification emails are skipped silently. The variable must be named exactly RESEND_API_KEY.",
+    },
+    {
+      name: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+      label: "Google Maps key",
+      present: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
+      whenSet: "Satellite view and address lookup are working.",
+      whenMissing: "The listing wizard can't show a map or find an address.",
+    },
+  ];
+
   const listingById = new Map(listings.map((l) => [l.id, l]));
   const emailById = new Map(profiles.map((p) => [p.id, p.email]));
 
@@ -103,6 +133,26 @@ export default async function AdminPage() {
         <Tile label="Awaiting a homeowner" value={String(pending)} sub={`${requests.length} requests total`} />
         <Tile label="Booked run-rate" value={money(runRate)} sub={`${booked.length} live or approved`} />
       </div>
+
+      <Panel title="Deployment" count={CONFIG.length}>
+        <p className="text-[12.5px] text-ink-2 mb-2">
+          Whether each server-side key reached this deployment. Names only —
+          the values are never read into a page.
+        </p>
+        {CONFIG.map((c) => (
+          <Line key={c.name}>
+            <span className="min-w-0">
+              <b className="block text-[14px]">{c.label}</b>
+              <span className="text-[12.5px] text-ink-2">
+                {c.present ? c.whenSet : c.whenMissing}
+              </span>
+            </span>
+            <Badge tone={c.present ? "brand" : "gold"}>
+              {c.present ? "set" : "missing"}
+            </Badge>
+          </Line>
+        ))}
+      </Panel>
 
       <Panel title="Requests" count={requests.length}>
         {requests.length === 0 ? (

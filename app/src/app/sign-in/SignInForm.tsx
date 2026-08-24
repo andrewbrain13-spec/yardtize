@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { sendMagicLink, type SignInState } from "./actions";
 import { buttonClass } from "@/components/ui";
+import { CodeForm } from "./CodeForm";
 
 const INITIAL: SignInState = { status: "idle" };
 
@@ -44,6 +45,7 @@ export function SignInForm({
         <p className="text-[12.5px] text-ink-3 mt-4">
           No email after a minute? Check your spam folder.
         </p>
+        <CodeForm email={state.email ?? ""} next={next} />
       </div>
     );
   }
