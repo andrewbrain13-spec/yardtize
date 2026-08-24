@@ -6,6 +6,9 @@ import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import { money } from "@/lib/money";
 import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
 import { describeTerm } from "@/lib/scheduling";
+import { computeDelivery } from "@/lib/delivery";
+
+const fmtImpressions = (n: number) => n.toLocaleString("en-US");
 import type { PlacementRequest, PublicListing, RequestStatus } from "@/lib/supabase/types";
 import { NameField } from "./NameField";
 
@@ -136,11 +139,28 @@ export default async function DashboardPage() {
                   <Badge tone={r.status === "requested" ? "gold" : "brand"}>
                     {ADVERTISER_STATUS[r.status]}
                   </Badge>
+                  {/* A report only says something once the sign is standing. */}
+                  {(r.status === "active" || r.status === "completed") && (
+                    <Link
+                      href={`/placements/${r.id}`}
+                      className="text-[12.5px] font-semibold text-brand-deep underline underline-offset-2"
+                    >
+                      {fmtImpressions(
+                        computeDelivery({
+                          aadt: listing?.aadt_sum ?? null,
+                          startsOn: r.starts_on,
+                          endsOn: r.ends_on,
+                          paidCents: 0,
+                        }).impressionsToDate,
+                      )}{" "}
+                      impressions →
+                    </Link>
+                  )}
                   <Link
                     href={`/agreement/${r.id}`}
-                    className="text-[12.5px] font-semibold text-brand-deep underline underline-offset-2"
+                    className="text-[12.5px] text-ink-3 underline underline-offset-2"
                   >
-                    Placement summary →
+                    agreement
                   </Link>
                 </div>
               </div>
