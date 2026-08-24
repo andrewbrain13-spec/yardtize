@@ -154,6 +154,24 @@ export type ListingAvailability = {
   ends_on: string;
 };
 
+export type LeaseStatus = "awaiting_signature" | "submitted" | "approved" | "rejected";
+
+/** One per placement. `terms` is the frozen snapshot the document renders from. */
+export type Lease = {
+  id: string;
+  request_id: string;
+  status: LeaseStatus;
+  terms: import("@/lib/lease").LeaseTerms;
+  signed_path: string | null;
+  signed_by: string | null;
+  signed_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 /** What Yardtize knows about someone it can't serve yet. */
 export type WaitlistEntry = {
   id: string;
@@ -195,6 +213,7 @@ export type Database = {
       requests: Table<PlacementRequest>;
       aadt_cache: Table<AadtCacheRow>;
       waitlist: Table<WaitlistEntry>;
+      leases: Table<Lease>;
     };
     Views: {
       listings_public: Table<PublicListing>;
@@ -207,6 +226,7 @@ export type Database = {
       request_status: RequestStatus;
       advertiser_type: AdvertiserType;
       install_choice: InstallChoice;
+      lease_status: LeaseStatus;
     };
     CompositeTypes: Record<string, never>;
   };

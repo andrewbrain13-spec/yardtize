@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getSiteOrigin } from "@/lib/site-url";
-import { notifyRequesterOfDecision } from "@/lib/notifications";
+import { notifyRequesterOfDecision, notifyLeaseReady } from "@/lib/notifications";
+import { ensureLease } from "@/lib/lease-server";
 import type { RequestStatus } from "@/lib/supabase/types";
 
 export type DecisionState = { error?: string };
@@ -75,6 +76,22 @@ export async function decideRequest(
       };
     }
     return { error: error.message };
+  }
+
+  /*
+   * Approving is what brings the agreement into existence. Its terms are
+   * frozen at this moment: the rate the homeowner agreed to and the city rules
+   * as they read today, so a later edit to either cannot rewrite a document
+   * somebody has signed.
+   */
+  if (next === "approved") {
+    const lease = await ensureLease(id);
+    if (lease?.created) {
+      const result = await notifyLeaseReady(id, await getSiteOrigin());
+      if (!result.sent && result.reason === "failed") {
+        console.error("[notify] lease-ready email failed:", result.detail);
+      }
+    }
   }
 
   /*

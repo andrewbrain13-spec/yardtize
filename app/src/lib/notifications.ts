@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, type EmailResult } from "@/lib/email";
 import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
 import { money } from "@/lib/money";
+import { describeTerm } from "@/lib/scheduling";
 
 /**
  * The two moments in a placement that happen while the other party is not
@@ -137,4 +138,139 @@ export async function notifyRequesterOfDecision(
     footnote:
       "Yardtize takes any sign down within 48 hours of a complaint from the city or the homeowner.",
   });
+}
+
+/** Both parties, when an agreement is ready to sign. */
+export async function notifyLeaseReady(requestId: string, origin: string): Promise<EmailResult> {
+  const parties = await partiesFor(requestId);
+  if (!parties) return { sent: false, reason: "failed", detail: "parties not found" };
+
+  const { owner, advertiser, term, yard } = parties;
+  const results = await Promise.all(
+    [owner, advertiser].map((to) =>
+      sendEmail({
+        to,
+        subject: `Agreement ready to sign — ${yard}`,
+        heading: "Your placement agreement is ready",
+        body: [
+          `${advertiser === to ? "The homeowner approved your request" : "You approved this placement"}, so the agreement is drawn up: ${yard}, ${term}.`,
+          `Print it, both of you sign it — pen and paper, or any e-signing tool you like — then send a copy back through the link below.`,
+          `Yardtize checks the signatures and confirms. Nothing goes in the ground until then.`,
+        ],
+        action: { label: "Open the agreement", url: `${origin}/agreement/${requestId}` },
+      }),
+    ),
+  );
+  return results.find((r) => !r.sent) ?? { sent: true };
+}
+
+/** The operator, when a signed copy needs checking. */
+export async function notifyOperatorOfSignedLease(
+  requestId: string,
+  origin: string,
+): Promise<EmailResult> {
+  const admin = createAdminClient();
+  if (!admin) return NOT_CONFIGURED;
+
+  const { data: operators } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("is_admin", true);
+
+  const parties = await partiesFor(requestId);
+  if (!parties || !operators?.length) {
+    return { sent: false, reason: "failed", detail: "no operator to notify" };
+  }
+
+  const results = await Promise.all(
+    operators
+      .filter((o) => o.email)
+      .map((o) =>
+        sendEmail({
+          to: o.email,
+          subject: `Signed agreement to check — ${parties.yard}`,
+          heading: "A signed agreement is waiting",
+          body: [
+            `${parties.advertiserName} and the owner of ${parties.yard} have sent back a signed copy for ${parties.term}.`,
+            `Check that both parties signed and that it matches the terms. Confirming is what takes the placement live.`,
+          ],
+          action: { label: "Review it", url: `${origin}/admin/leases` },
+        }),
+      ),
+  );
+  return results.find((r) => !r.sent) ?? { sent: true };
+}
+
+/** Both parties, once an agreement is confirmed or sent back. */
+export async function notifyLeaseReviewed(
+  requestId: string,
+  approved: boolean,
+  note: string | null,
+  origin: string,
+): Promise<EmailResult> {
+  const parties = await partiesFor(requestId);
+  if (!parties) return { sent: false, reason: "failed", detail: "parties not found" };
+
+  const { owner, advertiser, term, yard } = parties;
+  const results = await Promise.all(
+    [owner, advertiser].map((to) =>
+      sendEmail({
+        to,
+        subject: approved
+          ? `Confirmed — the placement is live at ${yard}`
+          : `Your signed agreement needs another look — ${yard}`,
+        heading: approved ? "The placement is live" : "We sent the agreement back",
+        body: approved
+          ? [
+              `Yardtize has checked the signatures on ${yard}. The placement runs ${term}.`,
+              `The sign can go up on the start date. If anyone objects to it — the city, an HOA, or the homeowner — it comes down within 48 hours, no questions asked.`,
+            ]
+          : [
+              `Something wasn't right with the signed copy for ${yard}.`,
+              note ?? "Have another look at the agreement and send a fresh copy.",
+              `Nothing is lost — send a corrected copy through the same link.`,
+            ],
+        action: { label: "Open the agreement", url: `${origin}/agreement/${requestId}` },
+      }),
+    ),
+  );
+  return results.find((r) => !r.sent) ?? { sent: true };
+}
+
+/**
+ * The two email addresses on a placement, plus the bits every lease email
+ * needs. Reads across accounts, so it goes through the service role.
+ */
+async function partiesFor(requestId: string) {
+  const admin = createAdminClient();
+  if (!admin) return null;
+
+  const { data: request } = await admin
+    .from("requests")
+    .select("*")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (!request) return null;
+
+  const { data: listing } = await admin
+    .from("listings")
+    .select("owner_id, headline, city")
+    .eq("id", request.listing_id)
+    .maybeSingle();
+  if (!listing) return null;
+
+  const [{ data: ownerProfile }, { data: advertiserProfile }] = await Promise.all([
+    admin.from("profiles").select("email").eq("id", listing.owner_id).maybeSingle(),
+    admin.from("profiles").select("email").eq("id", request.requester_id).maybeSingle(),
+  ]);
+
+  if (!ownerProfile?.email || !advertiserProfile?.email) return null;
+
+  return {
+    owner: ownerProfile.email,
+    advertiser: advertiserProfile.email,
+    advertiserName: request.advertiser_name,
+    yard: listing.headline ?? `the ${listing.city} yard`,
+    term: describeTerm({ startsOn: request.starts_on, endsOn: request.ends_on }),
+  };
 }

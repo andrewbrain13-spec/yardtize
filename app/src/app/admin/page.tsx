@@ -149,6 +149,12 @@ export default async function AdminPage() {
         >
           People →
         </Link>
+        <Link
+          href="/admin/leases"
+          className="text-[13px] font-semibold text-brand-deep underline underline-offset-2"
+        >
+          Agreements →
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-7">
