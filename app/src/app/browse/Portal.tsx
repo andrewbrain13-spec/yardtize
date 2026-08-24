@@ -17,12 +17,8 @@ import { money } from "@/lib/money";
 import type { AdvertiserType } from "@/lib/supabase/types";
 import { ListingsMap } from "./ListingsMap";
 import { submitRequest, type RequestState } from "./actions";
-import {
-  ELECTION_WINDOW_MONTHS,
-  PLATFORM_INSTALL_EACH_WAY,
-  SELF_INSTALL_DEPOSIT,
-  SERVICE_FEE_RATE,
-} from "@/lib/booking";
+import { ELECTION_WINDOW_MONTHS, SELF_INSTALL_DEPOSIT, PLATFORM_INSTALL_EACH_WAY } from "@/lib/booking";
+import { planBilling, formatCents } from "@/lib/billing";
 
 type Fit = { allowed: boolean; product?: string; reason: string };
 
@@ -293,7 +289,6 @@ function Drawer({
   const fit = listing.fits[advertiserType];
   const size = listing.sizes[sizeIndex] ?? listing.sizes[0];
   const months = DURATIONS.find((d) => d.value === duration)?.months ?? 1;
-  const placement = (listing.rate ?? 0) * months;
 
   const isElection = duration === "election";
   const term = termFor({
@@ -310,8 +305,15 @@ function Drawer({
     display_period_days: listing.displayPeriodDays,
     gap_days: listing.gapDays,
   } as never);
-  const installCost = install === "self" ? SELF_INSTALL_DEPOSIT : PLATFORM_INSTALL_EACH_WAY * 2;
-  const fee = placement * SERVICE_FEE_RATE;
+  const plan = planBilling({
+    monthlyRateDollars: listing.rate ?? 0,
+    startsOn: term.startsOn,
+    endsOn: term.endsOn,
+    install,
+  });
+  const placementCharges = plan.charges.filter((c) => c.kind === "placement");
+  const monthsRemaining = Math.max(0, placementCharges.length - 1);
+  const perMonthCents = placementCharges[1]?.amountCents ?? 0;
 
   async function onFile(file: File) {
     if (!userId) {
@@ -615,17 +617,34 @@ function Drawer({
             className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[14.5px] focus:outline-none focus:border-brand-mid"
           />
 
+          {/* What they will actually be billed, not a lump estimate: monthly
+              in advance, so the first payment is one month plus whatever is
+              charged once. */}
           <div className="border-t border-hairline mt-4 pt-3">
-            <Row label={`Placement (${DURATIONS.find((d) => d.value === duration)?.label})`} value={money(placement)} />
-            <Row
-              label={install === "self" ? "Security deposit (refundable)" : "Yardtize install + removal"}
-              value={money(installCost)}
-            />
-            <Row label="Yardtize service fee (10%)" value={money(fee)} />
-            <div className="flex justify-between font-bold text-[15.5px] border-t border-hairline mt-1.5 pt-2">
-              <span>Estimated total</span>
-              <span>{money(placement + installCost + fee)}</span>
+            <div className="flex justify-between font-bold text-[15.5px]">
+              <span>Due when the owner approves</span>
+              <span>{formatCents(plan.dueNowCents)}</span>
             </div>
+            <p className="text-[12px] text-ink-2 mt-1 mb-2.5">
+              {monthsRemaining > 0
+                ? `Then ${formatCents(perMonthCents)} a month for ${monthsRemaining} more ${monthsRemaining === 1 ? "month" : "months"}.`
+                : "Nothing further for this placement."}
+            </p>
+            {plan.charges
+              .filter((c) => c.kind !== "placement" || c.dueOn === plan.charges[0].dueOn)
+              .map((c) => (
+                <Row key={c.label} label={c.label} value={formatCents(c.amountCents)} />
+              ))}
+            <div className="flex justify-between text-[12.5px] text-ink-2 border-t border-hairline mt-1.5 pt-2">
+              <span>Whole term</span>
+              <span>{formatCents(plan.totalCents)}</span>
+            </div>
+            {plan.refundableCents > 0 && (
+              <p className="text-[11.5px] text-ink-3 mt-1.5">
+                {formatCents(plan.refundableCents)} of that is a deposit — returned
+                when the sign comes down clean and on time.
+              </p>
+            )}
           </div>
 
           {state.status === "error" && (

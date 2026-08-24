@@ -4,9 +4,9 @@ import Link from "next/link";
 import { Badge, ButtonLink, Card } from "@/components/ui";
 import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import type { Listing, PlacementRequest, RequestStatus } from "@/lib/supabase/types";
-import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
 import { money } from "@/lib/money";
 import { describeTerm } from "@/lib/scheduling";
+import { planBilling, formatCents } from "@/lib/billing";
 import { DecisionButtons } from "./DecisionButtons";
 
 export const metadata: Metadata = { title: "Your requests — Yardtize" };
@@ -95,8 +95,17 @@ export default async function InboxPage() {
         <div className="flex flex-col gap-3.5">
           {requests.map((r) => {
             const listing = byId.get(r.listing_id);
-            const months = r.is_election_window ? ELECTION_WINDOW_MONTHS : (r.duration_months ?? 1);
-            const gross = (listing?.monthly_rate ?? 0) * months;
+            /*
+             * From the same schedule the advertiser is billed on, so the two
+             * screens cannot drift. The homeowner's figure is their rate in
+             * full — Yardtize's fee is charged on top of it, not taken out.
+             */
+            const plan = planBilling({
+              monthlyRateDollars: listing?.monthly_rate ?? 0,
+              startsOn: r.starts_on,
+              endsOn: r.ends_on,
+              install: r.install,
+            });
             const status = STATUS_COPY[r.status];
             const preview = previews.get(r.id);
 
@@ -125,9 +134,13 @@ export default async function InboxPage() {
                     }
                   />
                   <Fact
-                    label="You'd earn"
-                    value={money(gross)}
-                    sub={listing?.monthly_rate ? `${money(listing.monthly_rate)}/mo` : "—"}
+                    label="You'd be paid"
+                    value={formatCents(plan.ownerTotalCents)}
+                    sub={
+                      listing?.monthly_rate
+                        ? `${money(listing.monthly_rate)}/mo — your full listed rate`
+                        : "—"
+                    }
                   />
                 </div>
 
