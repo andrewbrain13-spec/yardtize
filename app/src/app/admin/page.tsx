@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { requireAdmin } from "@/lib/admin";
+import { ListingControls } from "./ListingControls";
 import { money } from "@/lib/money";
 import type {
   Listing,
@@ -142,6 +143,12 @@ export default async function AdminPage() {
         >
           Cities &amp; sign codes →
         </Link>
+        <Link
+          href="/admin/people"
+          className="text-[13px] font-semibold text-brand-deep underline underline-offset-2"
+        >
+          People →
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-7">
@@ -200,12 +207,13 @@ export default async function AdminPage() {
                   {l.street_address}, {l.city}, {l.state} · {emailById.get(l.owner_id) ?? "unknown owner"}
                 </span>
               </span>
-              <span className="flex items-center gap-3 shrink-0 text-right">
+              <span className="flex items-center gap-3 shrink-0 text-right flex-wrap justify-end">
                 <span className="text-[12.5px] text-ink-2 tabular-nums">
                   {l.aadt_sum === null ? "no count" : `${fmt(l.aadt_sum)}/day`}
                 </span>
                 <span className="text-[14px] font-bold tabular-nums w-[74px]">{money(l.monthly_rate)}</span>
                 <Badge tone={l.status === "live" ? "brand" : "gold"}>{l.status}</Badge>
+                <ListingControls listingId={l.id} status={l.status} isDemo={l.is_demo} />
               </span>
             </Line>
           ))

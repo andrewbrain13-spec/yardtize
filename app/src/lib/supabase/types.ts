@@ -66,6 +66,9 @@ export type Profile = {
   full_name: string | null;
   /** Operator access to /admin. Not editable by the account itself — see 0008. */
   is_admin: boolean;
+  /** Set by an operator: listings hidden, no new listings or requests. */
+  suspended_at: string | null;
+  suspended_reason: string | null;
   created_at: string;
   updated_at: string;
 };
