@@ -8,9 +8,11 @@ import { buildLeaseTerms } from "@/lib/lease-server";
 import { numberedClauses, leaseHeading, LEASE_DISCLAIMER, type LeaseTerms } from "@/lib/lease";
 import { describeTerm } from "@/lib/scheduling";
 import { formatCents } from "@/lib/billing";
-import type { Lease } from "@/lib/supabase/types";
+import type { Lease, LeaseSignature } from "@/lib/supabase/types";
+import { partyLabel } from "@/lib/signing";
 import { PrintButton } from "./PrintButton";
 import { SignedUpload } from "./SignedUpload";
+import { SignPanel } from "./SignPanel";
 
 export const metadata: Metadata = {
   title: "Placement agreement — Yardtize",
@@ -72,6 +74,14 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
   const addressVisible =
     isOwner || ["approved", "active", "completed"].includes(request.status);
 
+  const { data: signatureRows } = lease
+    ? await supabase.from("lease_signatures").select("*").eq("lease_id", lease.id)
+    : { data: [] };
+  const signatures = (signatureRows ?? []) as LeaseSignature[];
+  const myParty = isOwner ? "owner" : "advertiser";
+  const mine = signatures.find((sig) => sig.party === myParty);
+  const theirs = signatures.find((sig) => sig.party !== myParty);
+
   let signedUrl: string | null = null;
   if (lease?.signed_path) {
     const { data } = await supabase.storage
@@ -89,14 +99,23 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
           <h1 className="text-[26px] tracking-[-0.4px]">Placement agreement</h1>
           <p className="text-ink-2 mt-1.5 max-w-[54ch]">
             {lease
-              ? "Print it, both of you sign it, then send a copy back. Yardtize checks the signatures and the placement goes live."
+              ? "Read it, then sign below. Once both of you have, Yardtize confirms and the placement goes live."
               : "What the two of you would be agreeing to. It becomes signable once the homeowner approves."}
           </p>
         </div>
         <PrintButton />
       </div>
 
-      {lease && <StatusPanel lease={lease} signedUrl={signedUrl} userId={user.id} />}
+      {lease && (
+        <StatusPanel
+          lease={lease}
+          signedUrl={signedUrl}
+          userId={user.id}
+          myParty={myParty}
+          alreadySigned={Boolean(mine)}
+          otherSigned={Boolean(theirs)}
+        />
+      )}
 
       {!lease && (
         <Card className="p-4 mb-4 border-amber-edge bg-amber-wash print:hidden">
@@ -170,11 +189,16 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
         ))}
 
         <div className="grid sm:grid-cols-2 gap-6 mt-8 pt-6 border-t border-hairline">
-          <SignatureBlock role="Property owner" name={terms.owner.name || terms.owner.email} />
+          <SignatureBlock
+            role="Property owner"
+            name={terms.owner.name || terms.owner.email}
+            signature={signatures.find((sig) => sig.party === "owner")}
+          />
           <SignatureBlock
             role="Advertiser"
             name={terms.advertiser.name}
             sub={terms.advertiser.contact || terms.advertiser.email}
+            signature={signatures.find((sig) => sig.party === "advertiser")}
           />
         </div>
 
@@ -190,10 +214,16 @@ function StatusPanel({
   lease,
   signedUrl,
   userId,
+  myParty,
+  alreadySigned,
+  otherSigned,
 }: {
   lease: Lease;
   signedUrl: string | null;
   userId: string;
+  myParty: "owner" | "advertiser";
+  alreadySigned: boolean;
+  otherSigned: boolean;
 }) {
   if (lease.status === "approved") {
     return (
@@ -246,19 +276,51 @@ function StatusPanel({
   return (
     <Card className="p-[22px] mb-4 print:hidden">
       <h2 className="text-[17px] tracking-[-0.3px] mb-1.5">
-        {lease.status === "rejected" ? "Sent back" : "Ready to sign"}
+        {lease.status === "rejected"
+          ? "Sent back"
+          : alreadySigned
+            ? "You've signed"
+            : "Ready to sign"}
       </h2>
+
       {lease.status === "rejected" && lease.review_note && (
         <p className="text-[13.5px] text-amber bg-amber-wash border border-amber-edge rounded-[10px] px-3.5 py-2.5 mb-3">
           {lease.review_note}
         </p>
       )}
-      <ol className="text-[13.5px] text-ink-2 list-decimal pl-5 flex flex-col gap-1 mb-4">
-        <li>Print the agreement below, or save it as a PDF.</li>
-        <li>Both of you sign it — pen and paper, or any e-signing tool you like.</li>
-        <li>Send the signed copy back here. A photo of the pages is fine.</li>
-      </ol>
-      <SignedUpload leaseId={lease.id} userId={userId} />
+
+      {alreadySigned ? (
+        <p className="text-[13.5px] text-ink-2">
+          {otherSigned
+            ? "Both parties have signed. Yardtize is checking it now."
+            : "Waiting on the other party. We'll email you the moment they sign, and the placement goes live once Yardtize confirms."}
+        </p>
+      ) : (
+        <>
+          <p className="text-[13.5px] text-ink-2 mb-3.5">
+            Read the agreement below, then sign it here.
+            {otherSigned ? " The other party has already signed." : ""}
+          </p>
+          <SignPanel
+            leaseId={lease.id}
+            partyLabel={partyLabel[myParty]}
+            otherSigned={otherSigned}
+          />
+        </>
+      )}
+
+      {/* The paper route stays open for anyone who would rather use it. */}
+      <details className="mt-4 border-t border-hairline pt-3">
+        <summary className="cursor-pointer text-[12.5px] text-ink-2">
+          Rather sign on paper?
+        </summary>
+        <ol className="text-[13px] text-ink-2 list-decimal pl-5 flex flex-col gap-1 my-3">
+          <li>Print the agreement below, or save it as a PDF.</li>
+          <li>Both of you sign it, however you like.</li>
+          <li>Send the signed copy back here — a photo of the pages is fine.</li>
+        </ol>
+        <SignedUpload leaseId={lease.id} userId={userId} />
+      </details>
     </Card>
   );
 }
@@ -275,7 +337,55 @@ function Pair({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-function SignatureBlock({ role, name, sub }: { role: string; name: string; sub?: string }) {
+function SignatureBlock({
+  role,
+  name,
+  sub,
+  signature,
+}: {
+  role: string;
+  name: string;
+  sub?: string;
+  signature?: LeaseSignature;
+}) {
+  /*
+   * A signed block shows what was actually signed — the name as typed, the
+   * drawn mark if there was one, and the moment. An unsigned one keeps the
+   * ruled lines, because this page is still printable for anyone who would
+   * rather do it on paper.
+   */
+  if (signature) {
+    return (
+      <div className="break-inside-avoid">
+        <div className="h-[38px] flex items-end gap-3">
+          {signature.drawn_mark ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={signature.drawn_mark}
+              alt={`Signature of ${signature.typed_name}`}
+              className="max-h-[38px] w-auto"
+            />
+          ) : (
+            <span className="text-[19px] italic text-ink" style={{ fontFamily: "Georgia, serif" }}>
+              {signature.typed_name}
+            </span>
+          )}
+        </div>
+        <div className="border-b border-ink-3" />
+        <div className="text-[12.5px] text-ink-2 mt-1.5">{role}</div>
+        <div className="text-[13.5px] font-semibold">{signature.typed_name}</div>
+        {sub && <div className="text-[12px] text-ink-3">{sub}</div>}
+        <div className="text-[12px] text-ink-3 mt-3">
+          Signed electronically{" "}
+          {new Date(signature.signed_at).toLocaleString("en-US", {
+            dateStyle: "long",
+            timeStyle: "short",
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="break-inside-avoid">
       <div className="h-[38px] border-b border-ink-3" />

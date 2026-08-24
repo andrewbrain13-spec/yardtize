@@ -172,6 +172,20 @@ export type Lease = {
   updated_at: string;
 };
 
+/** One party's signature on an agreement, with what it takes to stand behind it. */
+export type LeaseSignature = {
+  id: string;
+  lease_id: string;
+  signer_id: string;
+  party: "owner" | "advertiser";
+  typed_name: string;
+  drawn_mark: string | null;
+  consent_text: string;
+  ip: string | null;
+  user_agent: string | null;
+  signed_at: string;
+};
+
 /** What Yardtize knows about someone it can't serve yet. */
 export type WaitlistEntry = {
   id: string;
@@ -214,6 +228,7 @@ export type Database = {
       aadt_cache: Table<AadtCacheRow>;
       waitlist: Table<WaitlistEntry>;
       leases: Table<Lease>;
+      lease_signatures: Table<LeaseSignature>;
     };
     Views: {
       listings_public: Table<PublicListing>;
