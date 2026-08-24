@@ -5,6 +5,7 @@ import { ButtonLink, Badge, Card } from "@/components/ui";
 import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import { money } from "@/lib/money";
 import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
+import { describeTerm } from "@/lib/scheduling";
 import type { PlacementRequest, PublicListing, RequestStatus } from "@/lib/supabase/types";
 import { NameField } from "./NameField";
 
@@ -121,9 +122,7 @@ export default async function DashboardPage() {
                     </b>
                     <span className="text-[12.5px] text-ink-2">
                       {r.sign_size_label.split("—")[0].trim()} ·{" "}
-                      {r.is_election_window
-                        ? "election window"
-                        : `${r.duration_months} month${r.duration_months === 1 ? "" : "s"}`}
+                      {describeTerm({ startsOn: r.starts_on, endsOn: r.ends_on })}
                     </span>
                   </div>
                   <div className="text-right shrink-0">

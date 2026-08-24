@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSiteOrigin } from "@/lib/site-url";
 import { notifyOwnerOfRequest } from "@/lib/notifications";
 import { evaluateAdvertiserFit } from "@/lib/compliance";
+import { checkAvailability, termFor, today } from "@/lib/scheduling";
 import type { AdvertiserType, InstallChoice, Jurisdiction } from "@/lib/supabase/types";
 
 export type RequestState = { status: "idle" | "sent" | "error"; message?: string };
@@ -90,6 +91,39 @@ export async function submitRequest(
   }
 
   const isElection = duration === "election";
+
+  /*
+   * The term. An advertiser picks a start date; the election window overrides
+   * it with its own fixed dates, since that product IS those seven weeks.
+   */
+  const term = termFor({
+    startsOn: String(formData.get("startsOn") ?? "").trim() || today(),
+    durationMonths: isElection ? null : Number(duration),
+    isElectionWindow: isElection,
+  });
+
+  /*
+   * Checked here as well as in the browser, and the database refuses an
+   * overlap regardless (migration 0010). This layer exists to give a reason
+   * rather than a constraint violation — and to catch the case the database
+   * cannot see, where the clash is with the city's rules rather than another
+   * booking.
+   */
+  const { data: bookedRows } = await supabase
+    .from("listing_availability")
+    .select("starts_on, ends_on")
+    .eq("listing_id", listingId);
+
+  const availability = checkAvailability(
+    term,
+    (bookedRows ?? []).map((b) => ({ startsOn: b.starts_on, endsOn: b.ends_on })),
+    jurisdiction?.rules,
+  );
+
+  if (!availability.ok) {
+    return { status: "error", message: availability.reason };
+  }
+
   const { data: created, error } = await supabase
     .from("requests")
     .insert({
@@ -105,6 +139,8 @@ export async function submitRequest(
       rendering_path: renderingPath,
       message,
       status: "requested",
+      starts_on: term.startsOn,
+      ends_on: term.endsOn,
     })
     .select("id")
     .single();

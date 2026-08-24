@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import { evaluateAdvertiserFit, evaluateCompliance } from "@/lib/compliance";
-import type { AdvertiserType, Jurisdiction, PublicListing } from "@/lib/supabase/types";
+import type {
+  AdvertiserType,
+  Jurisdiction,
+  ListingAvailability,
+  PublicListing,
+} from "@/lib/supabase/types";
+import { earliestStart } from "@/lib/scheduling";
 import { Portal, type PortalListing } from "./Portal";
 
 export const metadata: Metadata = { title: "Yards for your business — Yardtize" };
@@ -23,6 +29,22 @@ export default async function BrowsePage() {
     .order("aadt_sum", { ascending: false, nullsFirst: false });
 
   const listings = (rows ?? []) as PublicListing[];
+
+  /*
+   * When each yard is spoken for. From the public view rather than `requests`,
+   * which row-level security would show only to the parties involved — see
+   * migration 0011.
+   */
+  const { data: availabilityRows } = await supabase
+    .from("listing_availability")
+    .select("*");
+
+  const bookedBy = new Map<string, Array<{ startsOn: string; endsOn: string }>>();
+  for (const row of (availabilityRows ?? []) as ListingAvailability[]) {
+    const list = bookedBy.get(row.listing_id) ?? [];
+    list.push({ startsOn: row.starts_on, endsOn: row.ends_on });
+    bookedBy.set(row.listing_id, list);
+  }
 
   const ids = [...new Set(listings.map((l) => l.jurisdiction_id).filter(Boolean))] as string[];
   const { data: jRows } = ids.length
@@ -54,6 +76,10 @@ export default async function BrowsePage() {
       signalized: l.signalized,
       cornerLot: l.corner_lot,
       isDemo: l.is_demo,
+      booked: bookedBy.get(l.id) ?? [],
+      availableFrom: earliestStart(bookedBy.get(l.id) ?? [], j?.rules),
+      displayPeriodDays: j?.rules.display_period_days ?? null,
+      gapDays: j?.rules.gap_days ?? null,
       jurisdictionName: j ? `${j.name}, ${j.state}` : "Compliance review pending",
       complianceChecks: report?.checks ?? [],
       sizes: (report?.allowedSizes ?? []).map((s) => ({ label: s.label, sqft: s.sqft })),

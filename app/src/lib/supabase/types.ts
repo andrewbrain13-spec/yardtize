@@ -123,6 +123,9 @@ export type PlacementRequest = {
   duration_months: number | null;
   is_election_window: boolean;
   install: InstallChoice;
+  /** First day the sign stands, and the day it comes down — [starts_on, ends_on). */
+  starts_on: string;
+  ends_on: string;
   rendering_path: string | null;
   message: string | null;
   status: RequestStatus;
@@ -140,6 +143,16 @@ export type PublicListing = Omit<
   Listing,
   "owner_id" | "street_address" | "sign_lat" | "sign_lng" | "suggested_rate" | "updated_at"
 >;
+
+/**
+ * When a yard is spoken for. Deliberately carries no advertiser — availability
+ * is public in a marketplace, who booked it is not. See migration 0011.
+ */
+export type ListingAvailability = {
+  listing_id: string;
+  starts_on: string;
+  ends_on: string;
+};
 
 /** What Yardtize knows about someone it can't serve yet. */
 export type WaitlistEntry = {
@@ -185,6 +198,7 @@ export type Database = {
     };
     Views: {
       listings_public: Table<PublicListing>;
+      listing_availability: Table<ListingAvailability>;
     };
     Functions: Record<string, never>;
     Enums: {

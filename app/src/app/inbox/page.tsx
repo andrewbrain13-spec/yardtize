@@ -6,6 +6,7 @@ import { createClient, getSessionProfile } from "@/lib/supabase/server";
 import type { Listing, PlacementRequest, RequestStatus } from "@/lib/supabase/types";
 import { ELECTION_WINDOW_MONTHS } from "@/lib/booking";
 import { money } from "@/lib/money";
+import { describeTerm } from "@/lib/scheduling";
 import { DecisionButtons } from "./DecisionButtons";
 
 export const metadata: Metadata = { title: "Your requests — Yardtize" };
@@ -115,9 +116,13 @@ export default async function InboxPage() {
                 <div className="grid sm:grid-cols-3 gap-2.5 mb-3.5">
                   <Fact label="Sign" value={r.sign_size_label.split("—")[0].trim()} sub={`${r.sign_size_sqft} sq ft`} />
                   <Fact
-                    label="Duration"
-                    value={r.is_election_window ? "Election window" : `${r.duration_months} month${r.duration_months === 1 ? "" : "s"}`}
-                    sub={r.is_election_window ? "Sep 19 – Nov 5" : "from approval"}
+                    label="Sign is up"
+                    value={describeTerm({ startsOn: r.starts_on, endsOn: r.ends_on })}
+                    sub={
+                      r.is_election_window
+                        ? "Election window"
+                        : `${r.duration_months} month${r.duration_months === 1 ? "" : "s"}`
+                    }
                   />
                   <Fact
                     label="You'd earn"

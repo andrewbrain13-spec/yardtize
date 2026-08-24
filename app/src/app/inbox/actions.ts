@@ -58,7 +58,24 @@ export async function decideRequest(
   }
 
   const { error } = await supabase.from("requests").update({ status: next }).eq("id", id);
-  if (error) return { error: error.message };
+
+  if (error) {
+    /*
+     * 23P01 is the exclusion constraint from migration 0010: this yard already
+     * has an approved sign over some of those days. It is reachable whenever
+     * two requests for overlapping weeks are both sitting in the inbox and the
+     * owner says yes to both — which is exactly the case the constraint exists
+     * for, and exactly the case a check-then-write in application code would
+     * miss under a race.
+     */
+    if (error.code === "23P01") {
+      return {
+        error:
+          "Those dates clash with a placement you've already approved on this yard. One sign at a time — decline this one, or ask them for different dates.",
+      };
+    }
+    return { error: error.message };
+  }
 
   /*
    * Only the two decisions the advertiser is waiting on get an email. Moving a

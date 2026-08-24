@@ -5,6 +5,13 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui";
 import { WaitlistForm } from "@/components/WaitlistForm";
+import {
+  checkAvailability,
+  describeDay,
+  describeTerm,
+  termFor,
+  today,
+} from "@/lib/scheduling";
 import { createClient } from "@/lib/supabase/client";
 import { money } from "@/lib/money";
 import type { AdvertiserType } from "@/lib/supabase/types";
@@ -34,6 +41,12 @@ export type PortalListing = {
   signalized: boolean;
   cornerLot: boolean;
   isDemo: boolean;
+  /** Terms already approved on this yard — dates only, no advertiser. */
+  booked: Array<{ startsOn: string; endsOn: string }>;
+  /** Soonest day a new placement could begin, gap rules included. */
+  availableFrom: string;
+  displayPeriodDays: number | null;
+  gapDays: number | null;
   jurisdictionName: string;
   complianceChecks: Array<{ status: "pass" | "info" | "warn"; label: string }>;
   sizes: Array<{ label: string; sqft: number }>;
@@ -190,6 +203,9 @@ export function Portal({
                     {l.aadt !== null && " veh/day"}
                   </span>
                   {l.signalized && <span>🚦 Signalized</span>}
+                  {l.availableFrom > today() && (
+                    <span className="text-amber">Free {describeDay(l.availableFrom)}</span>
+                  )}
                 </span>
               </span>
               <span className="text-right shrink-0">
@@ -266,6 +282,8 @@ function Drawer({
   });
   const [advertiserType, setAdvertiserType] = useState<AdvertiserType>("campaign");
   const [duration, setDuration] = useState("3");
+  // Defaults to the soonest the yard is actually free, not to today.
+  const [startsOn, setStartsOn] = useState(listing.availableFrom);
   const [install, setInstall] = useState<"self" | "platform">("self");
   const [sizeIndex, setSizeIndex] = useState(0);
   const [upload, setUpload] = useState<{ path: string; name: string } | null>(null);
@@ -276,6 +294,22 @@ function Drawer({
   const size = listing.sizes[sizeIndex] ?? listing.sizes[0];
   const months = DURATIONS.find((d) => d.value === duration)?.months ?? 1;
   const placement = (listing.rate ?? 0) * months;
+
+  const isElection = duration === "election";
+  const term = termFor({
+    startsOn,
+    durationMonths: isElection ? null : months,
+    isElectionWindow: isElection,
+  });
+  /*
+   * The same check the server runs, so a clash is visible before anybody fills
+   * in a form. The server repeats it, and the database refuses an overlap
+   * whatever either of them concludes.
+   */
+  const availability = checkAvailability(term, listing.booked, {
+    display_period_days: listing.displayPeriodDays,
+    gap_days: listing.gapDays,
+  } as never);
   const installCost = install === "self" ? SELF_INSTALL_DEPOSIT : PLATFORM_INSTALL_EACH_WAY * 2;
   const fee = placement * SERVICE_FEE_RATE;
 
@@ -381,6 +415,7 @@ function Drawer({
           <input type="hidden" name="signSizeLabel" value={size?.label ?? ""} />
           <input type="hidden" name="signSizeSqft" value={size?.sqft ?? 0} />
           <input type="hidden" name="duration" value={duration} />
+          <input type="hidden" name="startsOn" value={startsOn} />
           <input type="hidden" name="install" value={install} />
           <input type="hidden" name="renderingPath" value={upload?.path ?? ""} />
 
@@ -459,6 +494,46 @@ function Drawer({
               </option>
             ))}
           </select>
+
+          {/* The election window is those seven weeks by definition, so a
+              start date would be a field that does nothing. */}
+          {!isElection && (
+            <>
+              <label className="block text-[12.5px] font-semibold text-ink-2 mb-1.5" htmlFor="startsOn">
+                Sign goes up
+              </label>
+              <input
+                id="startsOn"
+                type="date"
+                value={startsOn}
+                min={today()}
+                onChange={(e) => setStartsOn(e.target.value)}
+                className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[14.5px] mb-2 focus:outline-none focus:border-brand-mid"
+              />
+            </>
+          )}
+
+          <p
+            className={`text-[12.5px] rounded-[9px] px-3 py-2 mb-4 ${
+              availability.ok
+                ? "bg-brand-wash text-ink-2"
+                : "bg-amber-wash border border-amber-edge text-amber"
+            }`}
+          >
+            {availability.ok ? (
+              <>
+                <b className="text-ink">Up {describeTerm(term)}</b>
+                {listing.displayPeriodDays
+                  ? ` · ${listing.jurisdictionName} allows ${listing.displayPeriodDays} days at a time`
+                  : ""}
+              </>
+            ) : (
+              <>
+                {availability.reason}
+                {availability.freeFrom && ` Free from ${describeDay(availability.freeFrom)}.`}
+              </>
+            )}
+          </p>
 
           <fieldset className="mb-4">
             <legend className="text-[12.5px] font-semibold text-ink-2 mb-1.5">
@@ -568,7 +643,7 @@ function Drawer({
           )}
 
           {userId ? (
-            <SubmitButton disabled={!fit.allowed || listing.isDemo} />
+            <SubmitButton disabled={!fit.allowed || listing.isDemo || !availability.ok} />
           ) : (
             <Link href="/sign-in?next=/browse" className={`${buttonClass("primary", "big")} w-full mt-2.5`}>
               Sign in to request →

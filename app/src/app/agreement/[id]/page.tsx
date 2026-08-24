@@ -4,6 +4,7 @@ import { Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { money } from "@/lib/money";
+import { describeTerm } from "@/lib/scheduling";
 import { ELECTION_WINDOW_MONTHS, SELF_INSTALL_DEPOSIT, PLATFORM_INSTALL_EACH_WAY } from "@/lib/booking";
 import type { Jurisdiction } from "@/lib/supabase/types";
 import { PrintButton } from "./PrintButton";
@@ -88,9 +89,15 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
   const total = (listing.monthly_rate ?? 0) * months;
   const rules = jurisdiction?.rules;
 
+  /*
+   * The term used to end "beginning on the installation date written in
+   * below", with nothing below to write it on. Both parties now agree to
+   * actual days, and the same days the database is holding the yard for.
+   */
+  const term = { startsOn: request.starts_on, endsOn: request.ends_on };
   const termLine = request.is_election_window
-    ? "The 2026 election window — September 19 through November 5, 2026."
-    : `${request.duration_months} month${request.duration_months === 1 ? "" : "s"}, beginning on the installation date written in below.`;
+    ? `${describeTerm(term)} — the 2026 election window.`
+    : `${describeTerm(term)} — ${request.duration_months} month${request.duration_months === 1 ? "" : "s"}.`;
 
   return (
     <div className="max-w-[780px] mx-auto px-[26px] py-[52px] print:py-0 print:px-0 print:max-w-none">
@@ -185,7 +192,11 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
         </Section>
 
         <Section title="3. Term and rate">
-          <Pair label="Term" value={termLine} sub="" />
+          <Pair
+            label="Term"
+            value={termLine}
+            sub="The sign goes up on the first date and comes down on the second."
+          />
           <Pair label="Rate" value={`${money(listing.monthly_rate)} per month`} sub={`${money(total)} over the full term`} />
           <p className="text-[12.5px] text-ink-2 mt-2">
             Yardtize is not collecting payment at this stage of the pilot. The
