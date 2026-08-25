@@ -5,6 +5,7 @@ import { getSessionProfile } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteOrigin } from "@/lib/site-url";
 import { notifyLeaseReviewed } from "@/lib/notifications";
+import { writeSchedule } from "@/lib/ledger";
 
 export type ReviewState = { status: "idle" | "done" | "error"; message?: string };
 
@@ -57,6 +58,13 @@ export async function reviewLease(_prev: ReviewState, formData: FormData): Promi
 
   if (approve) {
     await admin.from("requests").update({ status: "active" }).eq("id", lease.request_id);
+
+    /*
+     * Countersigning is the moment the money becomes owed, so the schedule is
+     * written now and frozen — a later change to the listing's rate must not
+     * reach back into a placement somebody has signed.
+     */
+    await writeSchedule(lease.request_id);
   }
 
   const told = await notifyLeaseReviewed(

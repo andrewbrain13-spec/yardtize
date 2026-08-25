@@ -69,6 +69,9 @@ export type Profile = {
   /** Set by an operator: listings hidden, no new listings or requests. */
   suspended_at: string | null;
   suspended_reason: string | null;
+  /** Where this homeowner's money goes, once Stripe onboarding is finished. */
+  stripe_account_id: string | null;
+  payouts_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -191,6 +194,48 @@ export type LeaseSignature = {
   signed_at: string;
 };
 
+export type ChargeKind = "placement" | "deposit" | "install";
+export type ChargeStatus = "scheduled" | "paid" | "failed" | "refunded" | "void";
+export type PayoutStatus = "scheduled" | "sent" | "failed";
+
+/**
+ * What an advertiser is billed, one row per period. Amounts are integer cents,
+ * and for anything but a deposit the parts are constrained to sum to the
+ * whole — see migration 0012.
+ */
+export type Charge = {
+  id: string;
+  request_id: string;
+  kind: ChargeKind;
+  amount_cents: number;
+  fee_cents: number;
+  owner_cents: number;
+  due_on: string;
+  period_start: string;
+  period_end: string;
+  status: ChargeStatus;
+  stripe_payment_intent_id: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** What Yardtize owes a homeowner, and whether it has gone out. */
+export type Payout = {
+  id: string;
+  owner_id: string;
+  request_id: string;
+  charge_id: string | null;
+  amount_cents: number;
+  period_start: string;
+  period_end: string;
+  status: PayoutStatus;
+  stripe_transfer_id: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PlacementEventKind = "installed" | "takedown_requested" | "removed" | "note";
 
 /** Append-only record of what happened to a placement once it was live. */
@@ -247,6 +292,8 @@ export type Database = {
       waitlist: Table<WaitlistEntry>;
       leases: Table<Lease>;
       lease_signatures: Table<LeaseSignature>;
+      charges: Table<Charge>;
+      payouts: Table<Payout>;
       placement_events: Table<PlacementEvent>;
       placement_reminders: Table<{ id: string; request_id: string; kind: string; sent_at: string }>;
     };
@@ -262,6 +309,9 @@ export type Database = {
       advertiser_type: AdvertiserType;
       install_choice: InstallChoice;
       lease_status: LeaseStatus;
+      charge_kind: ChargeKind;
+      charge_status: ChargeStatus;
+      payout_status: PayoutStatus;
       placement_event_kind: PlacementEventKind;
     };
     CompositeTypes: Record<string, never>;

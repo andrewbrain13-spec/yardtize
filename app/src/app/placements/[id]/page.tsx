@@ -8,7 +8,8 @@ import { computeDelivery } from "@/lib/delivery";
 import { planBilling, formatCents } from "@/lib/billing";
 import { describeTerm, describeDay } from "@/lib/scheduling";
 import { VISIBILITY_FACTOR } from "@/lib/rate";
-import type { Listing, PlacementEvent, PlacementRequest } from "@/lib/supabase/types";
+import type { Charge, Listing, PlacementEvent, PlacementRequest } from "@/lib/supabase/types";
+import { paymentsEnabled, inTestMode } from "@/lib/stripe";
 import { Lifecycle } from "./Lifecycle";
 
 export const metadata: Metadata = {
@@ -17,6 +18,12 @@ export const metadata: Metadata = {
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
+
+const CHARGE_LABEL: Record<Charge["kind"], string> = {
+  placement: "Placement",
+  deposit: "Refundable deposit",
+  install: "Install and removal",
+};
 
 const EVENT_LABEL: Record<PlacementEvent["kind"], string> = {
   installed: "Sign went up",
@@ -83,6 +90,18 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
     .eq("request_id", id)
     .order("created_at", { ascending: false });
   const events = (eventRows ?? []) as PlacementEvent[];
+
+  /*
+   * The schedule as written at countersigning, not recomputed. Once anything
+   * has been charged, the amount taken is the amount owed — recomputing would
+   * let a later rate change rewrite history.
+   */
+  const { data: chargeRows } = await supabase
+    .from("charges")
+    .select("*")
+    .eq("request_id", id)
+    .order("due_on");
+  const charges = (chargeRows ?? []) as Charge[];
 
   // Signed links for the photographs, an hour each.
   const photos = new Map<string, string>();
@@ -214,6 +233,68 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
           precise.
         </p>
       </Card>
+
+      {charges.length > 0 && (
+        <Card className="p-[22px] mt-4">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2.5">
+            <h2 className="text-[15px] font-bold uppercase tracking-[0.06em] text-ink-3">
+              {isOwner ? "What you're paid" : "What you're charged"}
+            </h2>
+            {!paymentsEnabled() ? (
+              <span className="text-[12px] text-amber">not collected yet</span>
+            ) : inTestMode() ? (
+              <span className="text-[12px] text-amber">Stripe test mode</span>
+            ) : null}
+          </div>
+
+          {charges.map((charge) => (
+            <div
+              key={charge.id}
+              className="flex justify-between items-baseline gap-3 flex-wrap py-2 border-t border-hairline first:border-t-0"
+            >
+              <span className="min-w-0">
+                <b className="block text-[13.5px]">{CHARGE_LABEL[charge.kind]}</b>
+                <span className="text-[12px] text-ink-2">
+                  {describeDay(charge.period_start)} – {describeDay(charge.period_end)}
+                  {charge.kind === "deposit" &&
+                    (isOwner
+                      ? " · returned to them when the sign comes down clean"
+                      : " · returned when the sign comes down")}
+                </span>
+              </span>
+              <span className="text-right shrink-0">
+                {/*
+                  A deposit and the install fee pay the homeowner nothing, so
+                  from their side these are not $0.00 payments — they are facts
+                  about the placement. Showing a row of zeroes under "what
+                  you're paid" reads like a mistake.
+                */}
+                {isOwner && charge.owner_cents === 0 ? (
+                  <span className="text-[12.5px] text-ink-2">
+                    {charge.kind === "deposit" ? "held against damage" : "Yardtize's cost"}
+                  </span>
+                ) : (
+                  <>
+                    <b className="block text-[14px] tabular-nums">
+                      {formatCents(isOwner ? charge.owner_cents : charge.amount_cents)}
+                    </b>
+                    <span className="text-[11.5px] text-ink-3">
+                      {charge.status === "paid" ? "paid" : `due ${describeDay(charge.due_on)}`}
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
+          ))}
+
+          {!paymentsEnabled() && (
+            <p className="text-[12.5px] text-ink-2 mt-3 pt-3 border-t border-hairline">
+              Yardtize isn&rsquo;t collecting payment yet — this is the schedule
+              both parties agreed to, and you settle it directly for now.
+            </p>
+          )}
+        </Card>
+      )}
 
       {events.length > 0 && (
         <Card className="p-[22px] mt-4">

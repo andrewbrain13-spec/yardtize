@@ -67,6 +67,24 @@ export default async function AdminPage() {
         "Notification emails are skipped silently. The Vercel variable must be named exactly RESEND_API_KEY.",
     },
     {
+      name: "STRIPE_SECRET_KEY",
+      label: "Stripe key",
+      present: Boolean(process.env.STRIPE_SECRET_KEY),
+      whenSet: (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test_")
+        ? "Test mode — real flows, fake money."
+        : "LIVE MODE — this deployment moves real money.",
+      whenMissing:
+        "Payments are not being collected. Schedules are still written and shown; nothing is charged.",
+    },
+    {
+      name: "CRON_SECRET",
+      label: "Cron secret",
+      present: Boolean(process.env.CRON_SECRET),
+      whenSet: "The daily reminder job is closed to everyone but Vercel.",
+      whenMissing:
+        "/api/reminders is open to anyone who finds it. Any random string closes it.",
+    },
+    {
       name: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
       label: "Google Maps key",
       present: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
