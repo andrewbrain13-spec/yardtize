@@ -77,6 +77,14 @@ export default async function AdminPage() {
         "Payments are not being collected. Schedules are still written and shown; nothing is charged.",
     },
     {
+      name: "STRIPE_WEBHOOK_SECRET",
+      label: "Stripe webhook secret",
+      present: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      whenSet: "Stripe can tell us about payments nobody stayed on the page for.",
+      whenMissing:
+        "Optional. Payments still settle on the return trip from Stripe — this only covers the cases where nobody comes back.",
+    },
+    {
       name: "CRON_SECRET",
       label: "Cron secret",
       present: Boolean(process.env.CRON_SECRET),
