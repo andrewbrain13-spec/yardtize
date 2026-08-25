@@ -6,6 +6,9 @@ import { getSessionProfile } from "@/lib/supabase/server";
 import { earningsFor } from "@/lib/earnings";
 import { formatCents } from "@/lib/billing";
 import { describeTerm } from "@/lib/scheduling";
+import { paymentsEnabled, inTestMode } from "@/lib/stripe";
+import { refreshPayoutStatus } from "@/lib/payments";
+import { PayoutSetup } from "./PayoutSetup";
 
 export const metadata: Metadata = {
   title: "Your earnings — Yardtize",
@@ -20,10 +23,32 @@ export const metadata: Metadata = {
  * that payouts are not running yet — a screen full of figures with no money
  * behind them would be worse than no screen at all if it did not admit that.
  */
-export default async function EarningsPage() {
+export default async function EarningsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connect?: string }>;
+}) {
   const session = await getSessionProfile();
   if (!session?.user) redirect("/sign-in?next=/earnings");
   if (!session.profile?.role) redirect("/welcome?next=/earnings");
+
+  /*
+   * Back from Stripe's onboarding. Ask Stripe rather than assume: finishing
+   * the form and being cleared for payouts are different events, sometimes
+   * days apart, and only Stripe knows which one has happened.
+   */
+  const { connect } = await searchParams;
+  const returned = connect === "done" || connect === "retry";
+  const payoutsReady = returned
+    ? await refreshPayoutStatus(session.user.id)
+    : Boolean(session.profile?.payouts_enabled);
+
+  const connectError =
+    connect === "not-configured"
+      ? "Payouts aren't switched on for this deployment yet."
+      : connect === "failed"
+        ? "Stripe didn't answer. Try again in a moment."
+        : undefined;
 
   const earnings = await earningsFor(session.user.id);
 
@@ -72,14 +97,23 @@ export default async function EarningsPage() {
             />
           </div>
 
-          <Card className="p-4 mt-3 border-amber-edge bg-amber-wash">
-            <p className="text-[13px]">
-              <b>Payouts aren&rsquo;t running yet.</b> These are what you&rsquo;ve
-              earned under your agreements — the money moves once Yardtize
-              finishes connecting payments. Until then advertisers settle with
-              you directly.
-            </p>
-          </Card>
+          {paymentsEnabled() ? (
+            <PayoutSetup
+              started={Boolean(session.profile?.stripe_account_id)}
+              enabled={payoutsReady}
+              testMode={inTestMode()}
+              error={connectError}
+            />
+          ) : (
+            <Card className="p-4 mt-3 border-amber-edge bg-amber-wash">
+              <p className="text-[13px]">
+                <b>Payouts aren&rsquo;t running yet.</b> These are what
+                you&rsquo;ve earned under your agreements — the money moves once
+                Yardtize finishes connecting payments. Until then advertisers
+                settle with you directly.
+              </p>
+            </Card>
+          )}
 
           <Card className="p-[22px] mt-4">
             <h2 className="text-[17px] tracking-[-0.3px] mb-2">Placement by placement</h2>

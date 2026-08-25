@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteOrigin } from "@/lib/site-url";
@@ -172,4 +173,42 @@ export async function confirmRemoved(
   revalidatePath(`/placements/${requestId}`);
   revalidatePath("/admin");
   return { status: "done" };
+}
+
+/**
+ * Send the advertiser to Stripe to pay one charge.
+ *
+ * This returns a redirect rather than a result: Checkout is a hosted page on
+ * Stripe's domain, and the whole point of using it is that card details never
+ * touch Yardtize. The authorisation check lives in startCheckout, against the
+ * ledger — a form field naming a charge id is not evidence of anything.
+ */
+export async function payCharge(_prev: LifecycleState, formData: FormData): Promise<LifecycleState> {
+  const chargeId = String(formData.get("chargeId") ?? "");
+  if (!chargeId) return DENIED;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return DENIED;
+
+  const { startCheckout } = await import("@/lib/payments");
+  const result = await startCheckout(chargeId, user.id, await getSiteOrigin());
+
+  if (result.ok) redirect(result.url);
+
+  switch (result.reason) {
+    case "not-configured":
+      return { status: "error", message: "Payments aren't switched on yet." };
+    case "already-paid":
+      return { status: "error", message: "That's already paid." };
+    case "not-yours":
+      return DENIED;
+    default:
+      return {
+        status: "error",
+        message: "Stripe didn't answer. Nothing was charged — try again in a moment.",
+      };
+  }
 }

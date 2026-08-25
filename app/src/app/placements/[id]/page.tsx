@@ -10,7 +10,9 @@ import { describeTerm, describeDay } from "@/lib/scheduling";
 import { VISIBILITY_FACTOR } from "@/lib/rate";
 import type { Charge, Listing, PlacementEvent, PlacementRequest } from "@/lib/supabase/types";
 import { paymentsEnabled, inTestMode } from "@/lib/stripe";
+import { reconcileCheckout } from "@/lib/payments";
 import { Lifecycle } from "./Lifecycle";
+import { PayButton } from "./PayButton";
 
 export const metadata: Metadata = {
   title: "Placement report — Yardtize",
@@ -40,14 +42,35 @@ const EVENT_LABEL: Record<PlacementEvent["kind"], string> = {
  * can check the arithmetic against the listing they booked, which is the whole
  * argument for pricing on public data in the first place.
  */
-export default async function PlacementReport({ params }: { params: Promise<{ id: string }> }) {
+export default async function PlacementReport({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ paid?: string }>;
+}) {
   const { id } = await params;
+  const { paid } = await searchParams;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect(`/sign-in?next=/placements/${id}`);
+
+  /*
+   * Back from Stripe. The session id in the URL is a lookup key and not a
+   * claim — reconcileCheckout asks Stripe what the payment actually did before
+   * anything is written down, so a hand-typed ?paid= settles nothing.
+   *
+   * Doing it here rather than waiting for the webhook is what makes the money
+   * show as paid on the page the advertiser lands on, instead of some seconds
+   * later once a callback arrives.
+   */
+  let justPaid = false;
+  if (paid?.startsWith("cs_")) {
+    justPaid = (await reconcileCheckout(paid)) === "paid";
+  }
 
   // Row-level security limits this to the two parties.
   const { data: requestRow } = await supabase
@@ -103,6 +126,14 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
     .order("due_on");
   const charges = (chargeRows ?? []) as Charge[];
 
+  /*
+   * The one charge an advertiser may pay right now: the earliest that has not
+   * been settled. Charges come back in due-date order, so this is simply the
+   * first unpaid one.
+   */
+  const nextPayableId =
+    charges.find((c) => c.status === "scheduled" || c.status === "failed")?.id ?? null;
+
   // Signed links for the photographs, an hour each.
   const photos = new Map<string, string>();
   for (const event of events) {
@@ -128,6 +159,17 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
         {listing.city}, {listing.state}
         {isOwner ? " · your yard" : ` · ${request.advertiser_name}`}
       </p>
+
+      {justPaid && (
+        <Card className="p-4 mb-4 border-brand-line bg-brand-soft">
+          <b className="text-[14px] text-brand">Payment received</b>
+          <p className="text-[13px] text-ink-2 mt-1">
+            Stripe has it. The schedule below is updated
+            {inTestMode() && " — this deployment is in Stripe test mode, so no real money moved"}
+            .
+          </p>
+        </Card>
+      )}
 
       {(live || request.status === "completed") && (
         <Lifecycle
@@ -281,16 +323,41 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
                     <span className="text-[11.5px] text-ink-3">
                       {charge.status === "paid" ? "paid" : `due ${describeDay(charge.due_on)}`}
                     </span>
+                    {/*
+                      Only the advertiser pays, and only the charge that is
+                      next in line. Offering month six before month one is
+                      settled would let the schedule be paid out of order,
+                      which the ledger has no way to represent.
+                    */}
+                    {!isOwner && paymentsEnabled() && charge.id === nextPayableId && (
+                      <PayButton
+                        chargeId={charge.id}
+                        amount={formatCents(charge.amount_cents)}
+                      />
+                    )}
                   </>
                 )}
               </span>
             </div>
           ))}
 
-          {!paymentsEnabled() && (
+          {!paymentsEnabled() ? (
             <p className="text-[12.5px] text-ink-2 mt-3 pt-3 border-t border-hairline">
               Yardtize isn&rsquo;t collecting payment yet — this is the schedule
               both parties agreed to, and you settle it directly for now.
+            </p>
+          ) : isOwner ? (
+            <p className="text-[12.5px] text-ink-2 mt-3 pt-3 border-t border-hairline">
+              Money reaches you after the advertiser pays each month.{" "}
+              <Link href="/earnings" className="text-brand">
+                Set up where it lands
+              </Link>{" "}
+              if you haven&rsquo;t yet.
+            </p>
+          ) : (
+            <p className="text-[12.5px] text-ink-2 mt-3 pt-3 border-t border-hairline">
+              Billed monthly in advance. Card details go to Stripe, never to
+              Yardtize.
             </p>
           )}
         </Card>

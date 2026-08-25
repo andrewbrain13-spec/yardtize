@@ -215,6 +215,9 @@ export type Charge = {
   period_end: string;
   status: ChargeStatus;
   stripe_payment_intent_id: string | null;
+  /** The hosted Checkout session, present from the moment paying starts. */
+  stripe_checkout_session_id: string | null;
+  checkout_opened_at: string | null;
   paid_at: string | null;
   created_at: string;
   updated_at: string;
