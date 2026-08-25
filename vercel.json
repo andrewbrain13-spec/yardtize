@@ -5,12 +5,24 @@
   "buildCommand": "cd app && npm run build -- --webpack",
   "outputDirectory": "app/.next",
   "crons": [
-    { "path": "/api/keep-alive", "schedule": "0 13 * * *" }
+    {
+      "path": "/api/keep-alive",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/reminders",
+      "schedule": "0 14 * * *"
+    }
   ],
   "redirects": [
     {
       "source": "/:path((?!api/).*)",
-      "has": [{ "type": "host", "value": "yardtize.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "yardtize.vercel.app"
+        }
+      ],
       "destination": "https://www.yardtize.com/:path",
       "permanent": false
     }

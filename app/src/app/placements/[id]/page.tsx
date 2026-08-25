@@ -8,7 +8,8 @@ import { computeDelivery } from "@/lib/delivery";
 import { planBilling, formatCents } from "@/lib/billing";
 import { describeTerm, describeDay } from "@/lib/scheduling";
 import { VISIBILITY_FACTOR } from "@/lib/rate";
-import type { Listing, PlacementRequest } from "@/lib/supabase/types";
+import type { Listing, PlacementEvent, PlacementRequest } from "@/lib/supabase/types";
+import { Lifecycle } from "./Lifecycle";
 
 export const metadata: Metadata = {
   title: "Placement report — Yardtize",
@@ -16,6 +17,13 @@ export const metadata: Metadata = {
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
+
+const EVENT_LABEL: Record<PlacementEvent["kind"], string> = {
+  installed: "Sign went up",
+  takedown_requested: "Takedown requested",
+  removed: "Sign came down",
+  note: "Note",
+};
 
 /**
  * What the advertiser bought, and what has been delivered so far.
@@ -69,6 +77,23 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
 
   const live = request.status === "active";
 
+  const { data: eventRows } = await supabase
+    .from("placement_events")
+    .select("*")
+    .eq("request_id", id)
+    .order("created_at", { ascending: false });
+  const events = (eventRows ?? []) as PlacementEvent[];
+
+  // Signed links for the photographs, an hour each.
+  const photos = new Map<string, string>();
+  for (const event of events) {
+    if (!event.photo_path) continue;
+    const { data } = await supabase.storage
+      .from("placement-photos")
+      .createSignedUrl(event.photo_path, 3600);
+    if (data?.signedUrl) photos.set(event.id, data.signedUrl);
+  }
+
   return (
     <div className="max-w-[820px] mx-auto px-[26px] py-[52px]">
       <div className="flex items-baseline gap-3 flex-wrap mb-1">
@@ -84,6 +109,17 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
         {listing.city}, {listing.state}
         {isOwner ? " · your yard" : ` · ${request.advertiser_name}`}
       </p>
+
+      {(live || request.status === "completed") && (
+        <Lifecycle
+          requestId={request.id}
+          userId={user.id}
+          installed={Boolean(request.installed_at)}
+          takedownAt={request.takedown_requested_at}
+          removed={Boolean(request.removed_at)}
+          isOwner={isOwner}
+        />
+      )}
 
       {delivery.status === "not started" && (
         <Card className="p-4 mb-4">
@@ -178,6 +214,38 @@ export default async function PlacementReport({ params }: { params: Promise<{ id
           precise.
         </p>
       </Card>
+
+      {events.length > 0 && (
+        <Card className="p-[22px] mt-4">
+          <h2 className="text-[15px] font-bold uppercase tracking-[0.06em] text-ink-3 mb-2.5">
+            What happened
+          </h2>
+          {events.map((event) => (
+            <div key={event.id} className="py-2.5 border-t border-hairline first:border-t-0">
+              <div className="flex justify-between items-baseline gap-3 flex-wrap">
+                <b className="text-[14px]">{EVENT_LABEL[event.kind]}</b>
+                <span className="text-[12px] text-ink-3">
+                  {new Date(event.created_at).toLocaleString("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </span>
+              </div>
+              {event.note && <p className="text-[13px] text-ink-2 mt-1">{event.note}</p>}
+              {photos.get(event.id) && (
+                <Link
+                  href={photos.get(event.id)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block mt-1.5 text-[12.5px] font-semibold text-brand-deep underline underline-offset-2"
+                >
+                  📷 See the photo →
+                </Link>
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
 
       <div className="flex gap-4 flex-wrap mt-6 text-[13px]">
         <Link href={`/agreement/${request.id}`} className="font-semibold text-brand-deep underline underline-offset-2">

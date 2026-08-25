@@ -87,6 +87,11 @@ export default async function DashboardPage() {
               Placement requests
             </ButtonLink>
           )}
+          {isHomeowner && (
+            <ButtonLink href="/earnings" variant="ghost">
+              Your earnings
+            </ButtonLink>
+          )}
           {/* The only link to /admin anywhere; the page itself 404s for everyone else. */}
           {session.profile.is_admin && (
             <ButtonLink href="/admin" variant="ghost">

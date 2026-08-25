@@ -126,6 +126,11 @@ export type PlacementRequest = {
   /** First day the sign stands, and the day it comes down — [starts_on, ends_on). */
   starts_on: string;
   ends_on: string;
+  /** The placement's life after it goes active. */
+  installed_at: string | null;
+  removed_at: string | null;
+  takedown_requested_at: string | null;
+  takedown_reason: string | null;
   rendering_path: string | null;
   message: string | null;
   status: RequestStatus;
@@ -186,6 +191,19 @@ export type LeaseSignature = {
   signed_at: string;
 };
 
+export type PlacementEventKind = "installed" | "takedown_requested" | "removed" | "note";
+
+/** Append-only record of what happened to a placement once it was live. */
+export type PlacementEvent = {
+  id: string;
+  request_id: string;
+  kind: PlacementEventKind;
+  actor_id: string | null;
+  note: string | null;
+  photo_path: string | null;
+  created_at: string;
+};
+
 /** What Yardtize knows about someone it can't serve yet. */
 export type WaitlistEntry = {
   id: string;
@@ -229,6 +247,8 @@ export type Database = {
       waitlist: Table<WaitlistEntry>;
       leases: Table<Lease>;
       lease_signatures: Table<LeaseSignature>;
+      placement_events: Table<PlacementEvent>;
+      placement_reminders: Table<{ id: string; request_id: string; kind: string; sent_at: string }>;
     };
     Views: {
       listings_public: Table<PublicListing>;
@@ -242,6 +262,7 @@ export type Database = {
       advertiser_type: AdvertiserType;
       install_choice: InstallChoice;
       lease_status: LeaseStatus;
+      placement_event_kind: PlacementEventKind;
     };
     CompositeTypes: Record<string, never>;
   };

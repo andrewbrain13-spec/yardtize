@@ -274,3 +274,135 @@ async function partiesFor(requestId: string) {
     term: describeTerm({ startsOn: request.starts_on, endsOn: request.ends_on }),
   };
 }
+
+/**
+ * Something happened to a live placement.
+ *
+ * One function rather than three, because the audience is always the same two
+ * people and the difference between the messages is a sentence. A takedown
+ * also reaches the operator, since the 48-hour clock is Yardtize's promise to
+ * keep, not the parties'.
+ */
+export async function notifyPlacementEvent(
+  requestId: string,
+  kind: "installed" | "takedown_requested" | "removed",
+  note: string | null,
+  origin: string,
+): Promise<EmailResult> {
+  const parties = await partiesFor(requestId);
+  if (!parties) return { sent: false, reason: "failed", detail: "parties not found" };
+
+  const { owner, advertiser, yard, term } = parties;
+  const url = `${origin}/placements/${requestId}`;
+
+  const message = {
+    installed: {
+      subject: `The sign is up at ${yard}`,
+      heading: "The sign is in the ground",
+      body: [
+        `${yard} is live. The placement runs ${term}.`,
+        `Delivery is counting from today, and you can see it accruing on the placement page.`,
+      ],
+      label: "See the placement",
+    },
+    takedown_requested: {
+      subject: `Takedown requested — ${yard}`,
+      heading: "This sign comes down within 48 hours",
+      body: [
+        `A takedown has been requested for ${yard}.`,
+        note ?? `The property owner asked for it, which under the agreement needs no reason.`,
+        `The sign comes down within 48 hours. Rent is prorated to the day it is removed, and neither party owes the other anything further.`,
+      ],
+      label: "Open the placement",
+    },
+    removed: {
+      subject: `Removed — ${yard}`,
+      heading: "The sign is out of the ground",
+      body: [
+        `${yard} is finished. Thanks — the ground goes back as it was found.`,
+        `The final delivery figures are on the placement page, and any refundable deposit is returned within 14 days.`,
+      ],
+      label: "See the final report",
+    },
+  }[kind];
+
+  const audience = [owner, advertiser];
+  if (kind === "takedown_requested") {
+    const admin = createAdminClient();
+    const { data: operators } = admin
+      ? await admin.from("profiles").select("email").eq("is_admin", true)
+      : { data: [] };
+    for (const operator of operators ?? []) {
+      if (operator.email && !audience.includes(operator.email)) audience.push(operator.email);
+    }
+  }
+
+  const results = await Promise.all(
+    audience.map((to) =>
+      sendEmail({
+        to,
+        subject: message.subject,
+        heading: message.heading,
+        body: message.body,
+        action: { label: message.label, url },
+      }),
+    ),
+  );
+  return results.find((r) => !r.sent) ?? { sent: true };
+}
+
+/** The daily job's three nudges. */
+export async function notifyPlacementReminder(
+  requestId: string,
+  kind: "install-due" | "ending-soon" | "removal-due",
+  origin: string,
+): Promise<EmailResult> {
+  const parties = await partiesFor(requestId);
+  if (!parties) return { sent: false, reason: "failed", detail: "parties not found" };
+
+  const { owner, advertiser, yard, term } = parties;
+  const url = `${origin}/placements/${requestId}`;
+
+  const message = {
+    "install-due": {
+      subject: `The sign goes up at ${yard} tomorrow`,
+      heading: "Installation is due",
+      body: [
+        `${yard} starts tomorrow. Once the sign is in the ground, confirm it on the placement page — a photo is worth adding.`,
+        `That confirmation is what an advertiser sees as proof, and what Yardtize points to if a city ever asks.`,
+      ],
+      label: "Confirm the install",
+    },
+    "ending-soon": {
+      subject: `A week left at ${yard}`,
+      heading: "This placement ends in a week",
+      body: [
+        `${yard} runs ${term}. The sign comes down at the end of that, and the ground goes back as it was found.`,
+        `To keep it up longer, the advertiser can book a fresh term — the yard is free from the day after this one ends.`,
+      ],
+      label: "See the placement",
+    },
+    "removal-due": {
+      subject: `Time to take the sign down at ${yard}`,
+      heading: "This placement has ended",
+      body: [
+        `${yard} has reached the end of its term and the sign is still recorded as standing.`,
+        `A sign left up past its term is exactly what a city notices, and in some places every day is a separate offence. Take it down and confirm it on the placement page.`,
+      ],
+      label: "Confirm removal",
+    },
+  }[kind];
+
+  const results = await Promise.all(
+    [owner, advertiser].map((to) =>
+      sendEmail({
+        to,
+        subject: message.subject,
+        heading: message.heading,
+        body: message.body,
+        action: { label: message.label, url },
+      }),
+    ),
+  );
+  return results.find((r) => !r.sent) ?? { sent: true };
+}

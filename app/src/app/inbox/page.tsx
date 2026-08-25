@@ -72,7 +72,11 @@ export default async function InboxPage() {
         {waiting > 0 && <Badge tone="gold">{waiting} awaiting you</Badge>}
       </div>
       <p className="text-ink-2 mb-6">
-        You approve every advertiser before a sign goes in the ground.
+        You approve every advertiser before a sign goes in the ground.{" "}
+        <Link href="/earnings" className="text-brand-deep underline underline-offset-2">
+          See what your yards have earned
+        </Link>
+        .
       </p>
 
       {listings.length === 0 ? (
