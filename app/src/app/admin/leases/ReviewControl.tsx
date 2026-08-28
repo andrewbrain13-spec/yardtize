@@ -39,7 +39,7 @@ export function ReviewControl({ leaseId }: { leaseId: string }) {
           required
           rows={2}
           placeholder="What's wrong? e.g. only one signature, or the dates don't match."
-          className="w-full border-[1.5px] border-hairline bg-white rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-brand-mid"
+          className="w-full border-[1.5px] border-hairline bg-field rounded-[10px] px-3 py-2 text-[13px] focus:outline-none focus:border-brand-mid"
         />
         <div className="flex items-center gap-3">
           <Go label="Send it back" busy="Sending…" tone="amber" />

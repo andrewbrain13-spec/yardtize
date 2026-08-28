@@ -8,7 +8,7 @@ import { buttonClass } from "@/components/ui";
 const INITIAL: ConfirmState = {};
 
 const field =
-  "border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-brand-mid";
+  "border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-2.5 text-[15px] focus:outline-none focus:border-brand-mid";
 
 function Submit() {
   const { pending } = useFormStatus();

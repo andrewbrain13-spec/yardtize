@@ -123,7 +123,15 @@ export default async function PlacementReport({
     .from("charges")
     .select("*")
     .eq("request_id", id)
-    .order("due_on");
+    /*
+     * Due date, then kind. The second key is not decoration: the first
+     * placement and the deposit are both due on day one, and a tie left to the
+     * database came back in whatever order it felt like — so the rows visibly
+     * reordered themselves between page loads, and "the next thing to pay"
+     * moved with them. A stable order is what makes the schedule readable.
+     */
+    .order("due_on")
+    .order("kind");
   const charges = (chargeRows ?? []) as Charge[];
 
   /*
@@ -163,7 +171,7 @@ export default async function PlacementReport({
       </p>
 
       {justPaid && (
-        <Card className="p-4 mb-4 border-brand-line bg-brand-soft">
+        <Card className="p-4 mb-4 border-brand-wash-2 bg-brand-wash">
           <b className="text-[14px] text-brand">Payment received</b>
           <p className="text-[13px] text-ink-2 mt-1">
             Stripe has it. The schedule below is updated

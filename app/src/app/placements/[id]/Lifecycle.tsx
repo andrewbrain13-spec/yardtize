@@ -217,7 +217,7 @@ export function Lifecycle({
             rows={2}
             required={!isOwner}
             placeholder={isOwner ? "Not required." : "e.g. notice from the city"}
-            className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[14px] mb-3 focus:outline-none focus:border-brand-mid"
+            className="w-full border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-2.5 text-[14px] mb-3 focus:outline-none focus:border-brand-mid"
           />
           <div className="flex items-center gap-3 flex-wrap">
             <Go label="Start the 48-hour clock" busy="Starting…" />

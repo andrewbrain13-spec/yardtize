@@ -130,7 +130,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       <Card className="p-[38px] print:border-0 print:shadow-none print:p-0">
         <header className="pb-4 mb-5 border-b border-hairline">
           <div className="flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.2px]">
-            <span className="grid place-items-center w-6 h-6 rounded-md bg-brand-deep text-white text-[13px]">
+            <span className="grid place-items-center w-6 h-6 rounded-md bg-brand-deep text-on-brand text-[13px]">
               Y
             </span>
             Yardtize

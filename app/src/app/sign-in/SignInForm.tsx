@@ -65,7 +65,7 @@ export function SignInForm({
         placeholder="you@example.com"
         defaultValue={state.email}
         aria-describedby={showError ? "signin-error" : undefined}
-        className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-3 text-[15.5px] focus:outline-none focus:border-brand-mid"
+        className="w-full border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-3 text-[15.5px] focus:outline-none focus:border-brand-mid"
       />
       {showError ? (
         <p id="signin-error" role="alert" className="text-[13px] text-amber bg-amber-wash border border-amber-edge rounded-[9px] px-3 py-2">

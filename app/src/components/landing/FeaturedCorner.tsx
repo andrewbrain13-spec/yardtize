@@ -33,7 +33,7 @@ export function FeaturedCorner() {
         {/* W 31st St */}
         <div className="absolute inset-x-0 top-[54%] h-[34px] bg-[#4a4a48] border-y-2 border-[#6b6b68]" />
         {/* The sign */}
-        <div className="absolute left-[38%] top-[26%] w-16 h-11 bg-white rounded-md border-2 border-brand grid place-items-center text-[9.5px] font-extrabold text-brand-deep text-center leading-[1.15] shadow-[0_6px_16px_rgba(0,0,0,.35)]">
+        <div className="absolute left-[38%] top-[26%] w-16 h-11 bg-field rounded-md border-2 border-brand grid place-items-center text-[9.5px] font-extrabold text-brand-deep text-center leading-[1.15] shadow-[0_6px_16px_rgba(0,0,0,.35)]">
           YOUR SIGN
           <br />
           HERE

@@ -32,7 +32,7 @@ export function Nav({ signedIn = false }: { signedIn?: boolean }) {
           href="/"
           className="flex items-center gap-[9px] text-[19px] font-extrabold tracking-[-0.2px] select-none"
         >
-          <span className="grid place-items-center w-7 h-7 rounded-lg bg-gradient-to-br from-brand-mid to-brand-deep text-white text-[15px] font-extrabold">
+          <span className="grid place-items-center w-7 h-7 rounded-lg bg-gradient-to-br from-brand-mid to-brand-deep text-on-brand text-[15px] font-extrabold">
             Y
           </span>
           Yardtize

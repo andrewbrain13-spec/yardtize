@@ -55,7 +55,7 @@ function Crumbs({ step }: { step: number }) {
               <span
                 className={`grid place-items-center w-6 h-6 rounded-full text-[12px] font-bold border-[1.5px] ${
                   state === "on"
-                    ? "bg-brand border-brand text-white"
+                    ? "bg-brand border-brand text-on-brand"
                     : state === "done"
                       ? "bg-brand-wash-2 border-brand-mid text-good-text"
                       : "bg-surface border-hairline"
@@ -270,7 +270,7 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
                 autoComplete="street-address"
                 defaultValue={lookup.status === "error" ? (lookup.query ?? "") : ""}
                 placeholder="3103 Karnes Blvd, Kansas City, MO 64111"
-                className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-3 text-[15.5px] focus:outline-none focus:border-brand-mid"
+                className="w-full border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-3 text-[15.5px] focus:outline-none focus:border-brand-mid"
               />
               <button
                 type="submit"
@@ -344,7 +344,7 @@ export function Wizard({ mapsApiKey }: { mapsApiKey: string | null }) {
             </div>
           </div>
 
-          <div className="border border-edge rounded-panel overflow-hidden shadow-lift bg-white">
+          <div className="border border-edge rounded-panel overflow-hidden shadow-lift bg-field">
             <SatelliteMap apiKey={mapsApiKey} center={pin} pin={pin} onPinMove={() => {}} />
             <div className="px-[18px] py-4">
               <div className="flex justify-between items-center gap-2.5">

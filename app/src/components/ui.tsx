@@ -10,7 +10,7 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-brand text-white",
+  primary: "bg-brand text-on-brand",
   ghost: "bg-transparent border border-edge text-ink",
 };
 

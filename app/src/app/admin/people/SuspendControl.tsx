@@ -72,7 +72,7 @@ export function SuspendControl({
         required
         placeholder="Why? e.g. city notice, unresolved"
         aria-label="Reason for suspending"
-        className="border-[1.5px] border-hairline bg-white rounded-[9px] px-2.5 py-1.5 text-[12.5px] w-[210px] focus:outline-none focus:border-brand-mid"
+        className="border-[1.5px] border-hairline bg-field rounded-[9px] px-2.5 py-1.5 text-[12.5px] w-[210px] focus:outline-none focus:border-brand-mid"
       />
       <Go label="Suspend" busy="Suspending…" tone="amber" />
       <button

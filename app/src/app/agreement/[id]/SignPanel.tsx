@@ -99,7 +99,7 @@ function DrawPad({ onChange }: { onChange: (dataUrl: string | null) => void }) {
         onPointerMove={move}
         onPointerUp={end}
         onPointerLeave={end}
-        className="w-full h-[100px] border-[1.5px] border-hairline rounded-[11px] bg-white touch-none cursor-crosshair"
+        className="w-full h-[100px] border-[1.5px] border-hairline rounded-[11px] bg-field touch-none cursor-crosshair"
       />
     </div>
   );
@@ -141,7 +141,7 @@ export function SignPanel({
         required
         autoComplete="name"
         placeholder="Andrew Brain"
-        className="w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[16px] focus:outline-none focus:border-brand-mid"
+        className="w-full border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-2.5 text-[16px] focus:outline-none focus:border-brand-mid"
       />
 
       <DrawPad onChange={setMark} />

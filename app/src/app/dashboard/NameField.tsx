@@ -31,7 +31,7 @@ export function NameField({ current }: { current: string | null }) {
           name="fullName"
           defaultValue={current ?? ""}
           placeholder="Andrew Brain"
-          className="border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[14.5px] flex-1 min-w-[200px] focus:outline-none focus:border-brand-mid"
+          className="border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-2.5 text-[14.5px] flex-1 min-w-[200px] focus:outline-none focus:border-brand-mid"
         />
         <Save hasName={Boolean(current)} />
       </div>

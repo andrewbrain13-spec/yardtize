@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/*
+ * Yardtize renders in whichever scheme the reader is using.
+ *
+ * This is not a preference, it is a defect fix. Chrome darkens any site that
+ * has no dark theme of its own, using a filter that has never seen the design
+ * — during payment testing it turned the green Pay button into dark text on a
+ * dark ground, invisible, on the one control the whole checkout depends on.
+ *
+ * Declaring `color-scheme: light` does not stop it; that was measured, not
+ * assumed. What does stop it is having a real dark theme: given one, Chrome
+ * stands down and uses the site's own colours. So the dark palette below is
+ * what keeps the design being seen as drawn on a phone set to dark, which is
+ * how a good share of people will first open it.
+ */
+:root {
+  color-scheme: light dark;
+}
+
 /* Design tokens lifted from yardtize-mockup.html — the approved prototype palette. */
 @theme {
   --color-page: #f9f9f7;
@@ -26,6 +44,15 @@
   --color-biz: #1c5cab;
   --color-biz-wash: #e8effb;
 
+  /*
+   * The colour a primary button's label takes. A token rather than `text-white`
+   * because the dark palette's green is lighter, and white on it fails contrast
+   * — there the label goes near-black instead.
+   */
+  --color-on-brand: #ffffff;
+  /* Input fields, which are white on the light ground and sunk on the dark. */
+  --color-field: #ffffff;
+
   --radius-card: 14px;
   --radius-panel: 18px;
 
@@ -33,6 +60,50 @@
   --shadow-lift: 0 4px 12px rgba(11, 11, 11, 0.08), 0 18px 50px rgba(11, 11, 11, 0.14);
 
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+ * The dark palette. Same design, same hierarchy — the greens are lifted
+ * because #166534 on a dark ground reads as black, and the inks are warmed
+ * rather than pure grey so the off-white character survives the inversion.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page: #11150f;
+    --color-surface: #181d16;
+    --color-ink: #eceee7;
+    --color-ink-2: #b4bbb1;
+    --color-ink-3: #838b80;
+    --color-hairline: #262d23;
+    --color-edge: rgba(236, 238, 231, 0.13);
+
+    --color-brand: #4aa869;
+    --color-brand-deep: #8ed3a4;
+    --color-brand-mid: #58c47c;
+    --color-brand-wash: #16211a;
+    --color-brand-wash-2: #22321f;
+
+    --color-good: #4ec24e;
+    --color-good-text: #7fd67f;
+    --color-warn: #e0a53a;
+    --color-amber: #dc9a4e;
+    --color-amber-wash: #2a2317;
+    --color-amber-edge: #453824;
+
+    --color-biz: #7aa9e8;
+    --color-biz-wash: #182337;
+
+    --color-on-brand: #07180d;
+    --color-field: #10150f;
+
+    /*
+     * Shadows do almost nothing on a dark ground — depth there comes from the
+     * surface being lighter than the page, which it already is. Keeping the
+     * light shadow would only muddy the card edges.
+     */
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-lift: 0 4px 12px rgba(0, 0, 0, 0.45), 0 18px 50px rgba(0, 0, 0, 0.5);
+  }
 }
 
 body {

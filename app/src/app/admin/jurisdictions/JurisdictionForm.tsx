@@ -10,7 +10,7 @@ import type { Jurisdiction } from "@/lib/supabase/types";
 const INITIAL: SaveState = { status: "idle" };
 
 const field =
-  "w-full border-[1.5px] border-hairline bg-white rounded-[11px] px-3.5 py-2.5 text-[14.5px] focus:outline-none focus:border-brand-mid";
+  "w-full border-[1.5px] border-hairline bg-field rounded-[11px] px-3.5 py-2.5 text-[14.5px] focus:outline-none focus:border-brand-mid";
 
 function Save() {
   const { pending } = useFormStatus();
