@@ -135,6 +135,8 @@ export type PlacementRequest = {
   takedown_requested_at: string | null;
   takedown_reason: string | null;
   rendering_path: string | null;
+  /** Set by an operator to stop the automatic deposit refund — see 0018. */
+  deposit_hold_reason: string | null;
   message: string | null;
   status: RequestStatus;
   created_at: string;
@@ -196,7 +198,7 @@ export type LeaseSignature = {
 
 export type ChargeKind = "placement" | "deposit" | "install";
 export type ChargeStatus = "scheduled" | "paid" | "failed" | "refunded" | "void";
-export type PayoutStatus = "scheduled" | "sent" | "failed";
+export type PayoutStatus = "scheduled" | "sent" | "failed" | "void";
 
 /**
  * What an advertiser is billed, one row per period. Amounts are integer cents,
@@ -219,6 +221,8 @@ export type Charge = {
   stripe_checkout_session_id: string | null;
   checkout_opened_at: string | null;
   paid_at: string | null;
+  stripe_refund_id: string | null;
+  refunded_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -237,6 +241,13 @@ export type Payout = {
   sent_at: string | null;
   created_at: string;
   updated_at: string;
+  /** What actually moved, prorated for days stood. Null until settled. */
+  settled_cents: number | null;
+  days_stood: number | null;
+  days_in_period: number | null;
+  attempted_at: string | null;
+  /** Why this payout is where it is, in words an operator can read. */
+  detail: string | null;
 };
 
 export type PlacementEventKind = "installed" | "takedown_requested" | "removed" | "note";

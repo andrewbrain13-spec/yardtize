@@ -134,6 +134,8 @@ export default async function PlacementReport({
   const nextPayableId =
     charges.find((c) => c.status === "scheduled" || c.status === "failed")?.id ?? null;
 
+  const depositCents = charges.find((c) => c.kind === "deposit")?.amount_cents ?? 0;
+
   // Signed links for the photographs, an hour each.
   const photos = new Map<string, string>();
   for (const event of events) {
@@ -167,6 +169,20 @@ export default async function PlacementReport({
             Stripe has it. The schedule below is updated
             {inTestMode() && " — this deployment is in Stripe test mode, so no real money moved"}
             .
+          </p>
+        </Card>
+      )}
+
+      {request.deposit_hold_reason && (
+        <Card className="p-4 mb-4 border-amber-edge bg-amber-wash">
+          <b className="text-[14px]">The deposit is being held</b>
+          <p className="text-[13px] text-ink-2 mt-1">
+            {request.deposit_hold_reason}
+          </p>
+          <p className="text-[12.5px] text-ink-3 mt-1.5">
+            Yardtize has paused the automatic return of the{" "}
+            {depositCents > 0 ? formatCents(depositCents) : "refundable"} deposit
+            while this is sorted out. Both of you can see this note.
           </p>
         </Card>
       )}

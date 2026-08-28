@@ -212,3 +212,39 @@ export async function payCharge(_prev: LifecycleState, formData: FormData): Prom
       };
   }
 }
+
+/**
+ * Hold, or release, a deposit refund.
+ *
+ * Operator only. The deposit goes back automatically once the sign has been
+ * down for the settling period, so this is the deliberate act of stopping
+ * that — and it takes a reason rather than a flag, because the reason is
+ * shown to both parties. "Held" with no explanation is how a marketplace
+ * loses a homeowner and an advertiser in the same afternoon.
+ */
+export async function setDepositHold(
+  _prev: LifecycleState,
+  formData: FormData,
+): Promise<LifecycleState> {
+  const requestId = String(formData.get("requestId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
+
+  const party = await partyFor(requestId);
+  if (!party?.isOperator) return DENIED;
+  const { admin, user } = party;
+
+  const { error } = await admin
+    .from("requests")
+    .update({ deposit_hold_reason: reason || null })
+    .eq("id", requestId);
+  if (error) return { status: "error", message: "That didn't save. Try again." };
+
+  await record(admin, requestId, "note", user.id, {
+    note: reason ? `Deposit refund held: ${reason}` : "Deposit hold released",
+    photoPath: null,
+  });
+
+  revalidatePath(`/placements/${requestId}`);
+  revalidatePath("/admin/settlement");
+  return { status: "done" };
+}

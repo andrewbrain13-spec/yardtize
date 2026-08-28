@@ -6,12 +6,14 @@ import { daysBetween, today, parseDay } from "@/lib/scheduling";
 import type { Listing, PlacementRequest } from "@/lib/supabase/types";
 
 /**
- * What a homeowner has earned and what is coming.
+ * What a homeowner has earned, what has actually reached them, and what is
+ * coming.
  *
- * Derived from the placements themselves rather than from the payouts table,
- * because no money has moved yet — Stripe is not wired. Once it is, the same
- * shape gets filled from real transfers and the arithmetic here becomes the
- * projection it is compared against.
+ * Accrual is derived from the placements themselves; settlement is read from
+ * the payouts table, because that is the record of money that really moved.
+ * Keeping the two separate is the point — the gap between "earned" and "paid"
+ * is a real thing a homeowner can be waiting on, and a single blended number
+ * would hide it.
  *
  * Earned means accrued: a placement pays for the days the sign has actually
  * stood, so a three-month booking a week old has earned a week. Anything else
@@ -44,6 +46,10 @@ export type Earnings = {
   bookedAheadCents: number;
   /** What a full month across every live placement comes to. */
   monthlyRunRateCents: number;
+  /** Transfers that have actually landed. */
+  paidOutCents: number;
+  /** Earned, settled, and waiting on the next payout run. */
+  awaitingPayoutCents: number;
 };
 
 export async function earningsFor(ownerId: string): Promise<Earnings | null> {
@@ -56,7 +62,14 @@ export async function earningsFor(ownerId: string): Promise<Earnings | null> {
     .eq("owner_id", ownerId);
   const listings = (listingRows ?? []) as Listing[];
   if (listings.length === 0) {
-    return { lines: [], earnedToDateCents: 0, bookedAheadCents: 0, monthlyRunRateCents: 0 };
+    return {
+      lines: [],
+      earnedToDateCents: 0,
+      bookedAheadCents: 0,
+      monthlyRunRateCents: 0,
+      paidOutCents: 0,
+      awaitingPayoutCents: 0,
+    };
   }
 
   const byId = new Map(listings.map((l) => [l.id, l]));
@@ -129,5 +142,33 @@ export async function earningsFor(ownerId: string): Promise<Earnings | null> {
     .filter((l) => l.status === "active")
     .reduce((sum, l) => sum + l.monthlyRateCents, 0);
 
-  return { lines, earnedToDateCents, bookedAheadCents, monthlyRunRateCents };
+  /*
+   * What has actually been transferred. Read from the payouts table rather
+   * than inferred from the accrual above: a homeowner should be able to tell
+   * the difference between money they have earned and money they have got.
+   */
+  const { data: payoutRows } = await admin
+    .from("payouts")
+    .select("status, amount_cents, settled_cents")
+    .eq("owner_id", ownerId);
+
+  const paidOutCents = (payoutRows ?? [])
+    .filter((p) => p.status === "sent")
+    .reduce((sum, p) => sum + (p.settled_cents ?? p.amount_cents), 0);
+
+  /*
+   * Earned but not yet sent. Deliberately capped at what has accrued: a
+   * scheduled payout for a period still running is not money anybody is
+   * waiting on yet.
+   */
+  const awaitingPayoutCents = Math.max(0, earnedToDateCents - paidOutCents);
+
+  return {
+    lines,
+    earnedToDateCents,
+    bookedAheadCents,
+    monthlyRunRateCents,
+    paidOutCents,
+    awaitingPayoutCents,
+  };
 }

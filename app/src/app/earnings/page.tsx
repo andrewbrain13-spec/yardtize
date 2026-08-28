@@ -66,7 +66,14 @@ export default async function EarningsPage({
     );
   }
 
-  const { lines, earnedToDateCents, bookedAheadCents, monthlyRunRateCents } = earnings;
+  const {
+    lines,
+    earnedToDateCents,
+    bookedAheadCents,
+    monthlyRunRateCents,
+    paidOutCents,
+    awaitingPayoutCents,
+  } = earnings;
 
   return (
     <div className="max-w-[820px] mx-auto px-[26px] py-[52px]">
@@ -88,7 +95,16 @@ export default async function EarningsPage({
       ) : (
         <>
           <div className="grid sm:grid-cols-3 gap-3">
-            <Figure label="Earned so far" value={formatCents(earnedToDateCents)} sub="accrued day by day" big />
+            <Figure
+              label="Earned so far"
+              value={formatCents(earnedToDateCents)}
+              sub={
+                paymentsEnabled() && paidOutCents > 0
+                  ? `${formatCents(paidOutCents)} paid, ${formatCents(awaitingPayoutCents)} on the way`
+                  : "accrued day by day"
+              }
+              big
+            />
             <Figure label="Still to come" value={formatCents(bookedAheadCents)} sub="on placements already agreed" />
             <Figure
               label="Monthly run-rate"
