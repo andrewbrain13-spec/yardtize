@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { LatLng } from "./geo";
 import { lookupKansasTraffic } from "./kansas";
+import { lookupNationalTraffic } from "./hpms";
 import { lookupMissouriTraffic } from "./modot";
 import type { TrafficLookup } from "./types";
 
@@ -34,11 +35,24 @@ export async function lookupTraffic(
     if (hit) return { ...hit, cached: true };
   }
 
+  /*
+   * Which source answers for this address.
+   *
+   * Missouri and Kansas run their own services, which are fresher and carry
+   * real street names, so they are asked first in their own states. Everywhere
+   * else goes to FHWA's national dataset.
+   *
+   * That last branch used to send every other state to MoDOT, which answered
+   * for a Colorado address by finding nothing in Missouri — a silent wrong
+   * answer, and the one an investor typing their own address would hit.
+   */
   const usState = state.trim().toUpperCase();
   const lookup =
     usState === "KS"
       ? await lookupKansasTraffic(point, { signal: options.signal })
-      : await lookupMissouriTraffic(point, { signal: options.signal });
+      : usState === "MO"
+        ? await lookupMissouriTraffic(point, { signal: options.signal })
+        : await lookupNationalTraffic(point, { signal: options.signal });
 
   // Only cache real answers. A "no data" result may just mean the state
   // server was briefly unreachable, and we do not want to freeze that in.

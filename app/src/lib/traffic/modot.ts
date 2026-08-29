@@ -1,4 +1,5 @@
 import { queryNearby } from "./arcgis";
+import { hpmsSegments } from "./hpms";
 import { bearingOf, distanceToPaths, type LatLng } from "./geo";
 import { selectHeadlineSegments } from "./select";
 import type { CountedSegment, TrafficLookup } from "./types";
@@ -87,6 +88,28 @@ export async function lookupMissouriTraffic(
       distanceMeters: Math.round(distanceToPaths(point, paths) * 10) / 10,
       bearing: bearingOf(paths),
     });
+  }
+
+  /*
+   * If MoDOT found nothing, ask the national dataset before giving up.
+   *
+   * Two different failures look identical from here: a genuinely uncounted
+   * residential street, and MoDOT being unreachable. The first deserves an
+   * honest "no data"; the second should not take the anchor property's
+   * numbers off the page during a demo. Falling through covers the second
+   * without inventing anything for the first — HPMS either has a count or it
+   * does not.
+   */
+  if (candidates.length === 0) {
+    const national = await hpmsSegments(point, options.signal).catch(() => []);
+    if (national.length > 0) {
+      const years = national.map((s) => s.year).filter(Boolean);
+      return selectHeadlineSegments(
+        national,
+        "FHWA HPMS",
+        years.length ? Math.max(...years) : null,
+      );
+    }
   }
 
   return selectHeadlineSegments(candidates, "MoDOT", year);

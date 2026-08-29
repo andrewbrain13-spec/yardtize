@@ -1,4 +1,5 @@
 import { queryNearby } from "./arcgis";
+import { hpmsSegments } from "./hpms";
 import { bearingOf, distanceToPaths, type LatLng } from "./geo";
 import { selectHeadlineSegments } from "./select";
 import type { CountedSegment, TrafficLookup } from "./types";
@@ -7,10 +8,6 @@ const KDOT_STATE =
   "https://wfs.ksdot.org/arcgis_web_adaptor/rest/services/Transportation/AADT_Flow_Map/FeatureServer/0";
 const KDOT_NONSTATE =
   "https://wfs.ksdot.org/arcgis_web_adaptor/rest/services/Transportation/AADT_NonState/FeatureServer/0";
-
-/** FHWA's national dataset — the backstop when KDOT is unavailable. */
-const HPMS_KS =
-  "https://geo.dot.gov/server/rest/services/Hosted/HPMS_FULL_KS_2023/FeatureServer/0";
 
 const RADIUS_M = 250;
 
@@ -21,28 +18,6 @@ type KdotAttrs = {
   ROUTE_NAME?: string | null;
   STREET_NAME?: string | null;
   LOCAL_NAME?: string | null;
-};
-
-type HpmsAttrs = {
-  aadt?: number | null;
-  datayear?: number | null;
-  route_number?: number | string | null;
-  f_system?: number | null;
-};
-
-/**
- * HPMS functional classes. Anything above 5 is a local street, which is
- * effectively never counted — used to describe what we found, since HPMS
- * carries no usable street names.
- */
-const F_SYSTEM_LABEL: Record<number, string> = {
-  1: "Interstate",
-  2: "Principal arterial (freeway)",
-  3: "Principal arterial",
-  4: "Minor arterial",
-  5: "Major collector",
-  6: "Minor collector",
-  7: "Local road",
 };
 
 async function fromKdot(point: LatLng, signal?: AbortSignal): Promise<CountedSegment[]> {
@@ -78,44 +53,13 @@ async function fromKdot(point: LatLng, signal?: AbortSignal): Promise<CountedSeg
   return segments;
 }
 
-async function fromHpms(point: LatLng, signal?: AbortSignal): Promise<CountedSegment[]> {
-  const features = await queryNearby<HpmsAttrs>(HPMS_KS, point, {
-    radiusMeters: RADIUS_M,
-    where: "aadt>0",
-    outFields: "aadt,datayear,route_number,f_system",
-    signal,
-    timeoutMs: 15_000,
-  });
-
-  const segments: CountedSegment[] = [];
-  for (const feature of features) {
-    const paths = feature.geometry?.paths;
-    const a = feature.attributes;
-    if (!paths?.length || !a.aadt || a.aadt <= 0) continue;
-
-    // HPMS publishes no street names, only route numbers, so we describe the
-    // road by its functional class rather than inventing a name.
-    const label = a.f_system ? F_SYSTEM_LABEL[a.f_system] : undefined;
-
-    segments.push({
-      road: label ?? "Classified road",
-      roadwayAadt: Math.round(a.aadt),
-      year: a.datayear ?? 2023,
-      source: "FHWA HPMS",
-      distanceMeters: Math.round(distanceToPaths(point, paths) * 10) / 10,
-      bearing: bearingOf(paths),
-    });
-  }
-  return segments;
-}
-
 /**
  * Kansas traffic counts.
  *
- * KDOT is the preferred source — it carries real street names and non-state
- * arterials. Its public service is unreliable (and is currently unreachable),
- * so we fall through to FHWA's national HPMS dataset, which is the same
- * federally-reported data with route numbers instead of names.
+ * KDOT is the preferred source — it carries real street names, non-state
+ * arterials, and a fresher count year. Its public service is unreliable, so we
+ * fall through to FHWA's national dataset, which is the same federally
+ * reported data a few years behind.
  *
  * Purely residential Kansas streets are not counted by anybody; in that case
  * the honest answer is the nearest classified road, labelled as such.
@@ -128,7 +72,7 @@ export async function lookupKansasTraffic(
   let source = "KDOT";
 
   if (!segments.length) {
-    segments = await fromHpms(point, options.signal).catch(() => []);
+    segments = await hpmsSegments(point, options.signal).catch(() => []);
     source = "FHWA HPMS";
   }
 

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx src/lib/scheduling.test.ts && tsx src/lib/billing.test.ts && tsx src/lib/delivery.test.ts && tsx src/lib/settlement.test.ts"
+    "test": "tsx src/lib/scheduling.test.ts && tsx src/lib/billing.test.ts && tsx src/lib/delivery.test.ts && tsx src/lib/settlement.test.ts && tsx src/lib/traffic/hpms.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
