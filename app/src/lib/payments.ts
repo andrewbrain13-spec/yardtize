@@ -223,64 +223,55 @@ export async function reconcileCheckout(sessionId: string): Promise<"paid" | "un
 
 export type OnboardingStart =
   | { ok: true; url: string }
-  | { ok: false; reason: "not-configured" | "failed" };
+  /*
+   * "refused" and "failed" are kept apart because they need different words in
+   * front of a person. A refusal is deterministic — Stripe looked at the
+   * request and said no — and telling somebody to try again just sends them
+   * round the same loop. Conflating the two cost several attempts chasing
+   * timeouts that were never happening.
+   */
+  | { ok: false; reason: "not-configured" | "refused" | "failed" };
 
 /**
- * Send a homeowner to Stripe to set up where their money lands.
+ * Create the connected account.
  *
- * Express accounts are the right shape here: Stripe hosts the onboarding, does
- * the identity and bank verification, and owns the compliance burden that
- * comes with paying out to individuals in fifty states. Yardtize never sees a
- * bank account number, which is the point.
- */
-/**
- * Create the connected account, in whichever shape this API version accepts.
+ * Accounts v2. Stripe now returns a hard 400 for v1 account creation on new
+ * integrations — "Stripe no longer recommends Accounts v1 for new Connect
+ * integrations" — and that is what was breaking this flow. An earlier attempt
+ * to fix it by switching from `type: "express"` to controller properties was
+ * wrong: both are v1 payloads to `/v1/accounts`, so both were refused for the
+ * same reason. The endpoint was the problem, not the shape of the body.
  *
- * `type: "express"` was how you made one for years. Newer API versions express
- * the same thing through controller properties — who pays the fees, who wears
- * the losses, which dashboard the account gets — and the library now nudges
- * towards Accounts v2 on every call. The account this produces is identical
- * either way: Stripe-hosted onboarding, Stripe carrying the identity and bank
- * verification, and Yardtize never seeing an account number.
+ * The Recipient configuration is the right one for this platform. Yardtize
+ * charges the advertiser on its own account and transfers the homeowner's
+ * share across — separate charges and transfers, with the homeowner never the
+ * merchant of record. The merchant configuration would say the opposite.
  *
- * Both are attempted because the failure being diagnosed is remote: Checkout
- * works on this same key and API version, so the client is fine and it is this
- * call specifically that Stripe is refusing. Trying the current shape first
- * and the older one second answers the question in one attempt instead of two,
- * and whichever way it goes the log below names it.
+ * Kept to what the flow actually needs. The last round of this bug was made
+ * worse by parameters nobody had asked for, so the country, the business type
+ * and the payout schedule are all left for Stripe to establish during
+ * onboarding, which is where the homeowner is anyway.
  */
 async function createConnectedAccount(
   client: Stripe,
   email: string,
   userId: string,
-): Promise<Stripe.Account> {
-  const shared = {
-    email,
-    capabilities: { transfers: { requested: true as const } },
-    metadata: { profile_id: userId },
-  };
-
-  try {
-    return await client.accounts.create({
-      ...shared,
-      controller: {
-        // Yardtize collects from the advertiser and pays the homeowner, so
-        // the platform is the one charging fees and carrying losses.
-        fees: { payer: "application" },
-        losses: { payments: "application" },
-        stripe_dashboard: { type: "express" },
+): Promise<{ id: string }> {
+  return client.v2.core.accounts.create({
+    contact_email: email,
+    // Express: Stripe hosts the onboarding and the account's own dashboard.
+    dashboard: "express",
+    configuration: {
+      recipient: {
+        capabilities: {
+          // The one thing a homeowner's account has to be able to do: receive
+          // a transfer of what they earned.
+          stripe_balance: { stripe_transfers: { requested: true } },
+        },
       },
-    });
-  } catch (error) {
-    const e = error as { type?: string; code?: string; message?: string };
-    console.error("[payouts] controller-style account creation refused", {
-      type: e.type,
-      code: e.code,
-      message: e.message,
-    });
-    // Fall back to the older shape. If this also fails, the caller logs it.
-    return await client.accounts.create({ ...shared, type: "express" });
-  }
+    },
+    metadata: { profile_id: userId },
+  });
 }
 
 export async function startPayoutOnboarding(
@@ -310,17 +301,23 @@ export async function startPayoutOnboarding(
         .eq("id", userId);
     }
 
-    const link = await client.accountLinks.create({
+    const link = await client.v2.core.accountLinks.create({
       account: accountId,
-      type: "account_onboarding",
-      /*
-       * Both URLs come back to the same place. refresh_url is where Stripe
-       * sends somebody whose link expired mid-way; landing them on the
-       * earnings page, which offers the button again, is more use than an
-       * error page explaining that a link expired.
-       */
-      refresh_url: `${origin}/earnings?connect=retry`,
-      return_url: `${origin}/earnings?connect=done`,
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          // Onboard the configuration we actually asked for.
+          configurations: ["recipient"],
+          /*
+           * Both URLs come back to the same place. refresh_url is where Stripe
+           * sends somebody whose link expired mid-way; landing them on the
+           * earnings page, which offers the button again, is more use than an
+           * error page explaining that a link expired.
+           */
+          refresh_url: `${origin}/earnings?connect=retry`,
+          return_url: `${origin}/earnings?connect=done`,
+        },
+      },
     });
 
     return { ok: true, url: link.url };
@@ -356,7 +353,15 @@ export async function startPayoutOnboarding(
       message: e.raw?.message ?? e.message,
     });
 
-    return { ok: false, reason: "failed" };
+    /*
+     * A 4xx means Stripe read the request and refused it. Retrying changes
+     * nothing, so the caller must not invite one.
+     */
+    const deterministic =
+      e.type === "StripeInvalidRequestError" ||
+      (typeof e.statusCode === "number" && e.statusCode >= 400 && e.statusCode < 500);
+
+    return { ok: false, reason: deterministic ? "refused" : "failed" };
   }
 }
 
@@ -382,8 +387,21 @@ export async function refreshPayoutStatus(userId: string): Promise<boolean> {
   if (!profile?.stripe_account_id) return false;
 
   try {
-    const account = await client.accounts.retrieve(profile.stripe_account_id);
-    const enabled = Boolean(account.payouts_enabled);
+    /*
+     * A v2 account carries no `payouts_enabled` boolean. What it has is the
+     * status of the capability we requested — active, pending, restricted or
+     * unsupported — and only `active` means Stripe will actually accept a
+     * transfer. Anything else is a homeowner who thinks they are set up and
+     * would not be paid, which is precisely the lie this function exists to
+     * avoid telling.
+     */
+    const account = await client.v2.core.accounts.retrieve(profile.stripe_account_id, {
+      include: ["configuration.recipient"],
+    });
+    const status =
+      account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status;
+    const enabled = status === "active";
+
     if (enabled !== profile.payouts_enabled) {
       await admin.from("profiles").update({ payouts_enabled: enabled }).eq("id", userId);
     }
@@ -402,7 +420,17 @@ export async function refreshPayoutStatus(userId: string): Promise<boolean> {
   }
 }
 
-/** Same write, keyed by the Stripe account — the shape a webhook arrives in. */
+/**
+ * Same write, keyed by the Stripe account id rather than by our user.
+ *
+ * Kept for the v1 `account.updated` webhook, which no longer fires for these
+ * accounts now that they are created through v2 — v2 accounts emit their
+ * events to a v2 event destination, which is separate setup nobody has done.
+ * That is survivable rather than urgent: the earnings page refreshes the
+ * status whenever an account is connected but not yet active, so a
+ * verification that clears days later is picked up the next time the
+ * homeowner looks, without any webhook at all.
+ */
 export async function syncAccountFromStripe(account: Stripe.Account): Promise<void> {
   const admin = createAdminClient();
   if (!admin) return;

@@ -39,16 +39,36 @@ export default async function EarningsPage({
    */
   const { connect } = await searchParams;
   const returned = connect === "done" || connect === "retry";
-  const payoutsReady = returned
-    ? await refreshPayoutStatus(session.user.id)
-    : Boolean(session.profile?.payouts_enabled);
 
+  /*
+   * Ask Stripe again whenever an account exists but is not yet cleared.
+   *
+   * Finishing onboarding and being cleared to receive money are different
+   * events, sometimes days apart, and the webhook that used to catch the
+   * second one does not fire for v2 accounts without a v2 event destination.
+   * One extra read, only while somebody is actually waiting, closes that gap
+   * without new infrastructure — and it stops once the answer is yes.
+   */
+  const started = Boolean(session.profile?.stripe_account_id);
+  const alreadyEnabled = Boolean(session.profile?.payouts_enabled);
+  const payoutsReady =
+    returned || (started && !alreadyEnabled)
+      ? await refreshPayoutStatus(session.user.id)
+      : alreadyEnabled;
+
+  /*
+   * A refusal and a timeout read the same to somebody staring at a button,
+   * and telling them to retry a deterministic rejection wastes their time —
+   * it wasted a good deal of ours before the error was being logged.
+   */
   const connectError =
     connect === "not-configured"
       ? "Payouts aren't switched on for this deployment yet."
-      : connect === "failed"
-        ? "Stripe didn't answer. Try again in a moment."
-        : undefined;
+      : connect === "refused"
+        ? "Payout setup isn't available right now. This is on our side, not yours — we've been told about it and retrying won't help."
+        : connect === "failed"
+          ? "Stripe didn't answer. Try again in a moment."
+          : undefined;
 
   const earnings = await earningsFor(session.user.id);
 
