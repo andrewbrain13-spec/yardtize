@@ -156,7 +156,14 @@ export async function startCheckout(
       .eq("id", charge.id);
 
     return { ok: true, url: session.url };
-  } catch {
+  } catch (error) {
+    const e = error as { type?: string; code?: string; message?: string };
+    console.error("[payments] Stripe refused a checkout session", {
+      chargeId,
+      type: e.type,
+      code: e.code,
+      message: e.message,
+    });
     return { ok: false, reason: "failed" };
   }
 }
@@ -245,19 +252,19 @@ export async function startPayoutOnboarding(
 
   try {
     if (!accountId) {
+      /*
+       * The minimum Stripe documents for an Express account. It used to also
+       * set a payout schedule and a business type; both were removed after
+       * this call started failing, on the principle that the first thing to
+       * try is the shape Stripe's own documentation describes. A connected
+       * account can set its own schedule, and Stripe infers the business type
+       * during onboarding, so neither was earning its place.
+       */
       const account = await client.accounts.create({
         type: "express",
         email,
-        business_type: "individual",
         capabilities: { transfers: { requested: true } },
         metadata: { profile_id: userId },
-        settings: {
-          payouts: {
-            // Stripe's default. Stated rather than assumed, because how fast a
-            // homeowner sees their money is a product decision, not a default.
-            schedule: { interval: "daily", delay_days: "minimum" },
-          },
-        },
       });
       accountId = account.id;
       await admin
@@ -280,7 +287,38 @@ export async function startPayoutOnboarding(
     });
 
     return { ok: true, url: link.url };
-  } catch {
+  } catch (error) {
+    /*
+     * Say what went wrong, in the log, where an operator can read it.
+     *
+     * This block used to swallow the error entirely and return "failed",
+     * which left the only evidence of a broken payout flow as a generic
+     * sentence on a page. Diagnosing it then meant guessing between three
+     * unrelated causes. Stripe's errors are specific and actionable — that
+     * a platform has not completed its Connect profile, that a key lacks a
+     * permission — and discarding them threw away the answer.
+     *
+     * It stays out of the response on purpose. Stripe's messages can name
+     * account identifiers and configuration, and none of that belongs in
+     * front of a homeowner who only wanted to be paid.
+     */
+    const e = error as {
+      type?: string;
+      code?: string;
+      statusCode?: number;
+      message?: string;
+      raw?: { message?: string };
+    };
+    console.error("[payouts] Stripe refused Connect onboarding", {
+      profileId: userId,
+      // Which call failed: with no account id yet, it was accounts.create.
+      stage: accountId ? "accountLinks.create" : "accounts.create",
+      type: e.type,
+      code: e.code,
+      statusCode: e.statusCode,
+      message: e.raw?.message ?? e.message,
+    });
+
     return { ok: false, reason: "failed" };
   }
 }
@@ -313,7 +351,16 @@ export async function refreshPayoutStatus(userId: string): Promise<boolean> {
       await admin.from("profiles").update({ payouts_enabled: enabled }).eq("id", userId);
     }
     return enabled;
-  } catch {
+  } catch (error) {
+    const e = error as { type?: string; code?: string; message?: string };
+    console.error("[payouts] couldn't read the connected account", {
+      profileId: userId,
+      type: e.type,
+      code: e.code,
+      message: e.message,
+    });
+    // The last known answer, which is better than claiming a status we
+    // could not confirm either way.
     return profile.payouts_enabled;
   }
 }
