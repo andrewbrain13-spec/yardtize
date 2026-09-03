@@ -315,7 +315,17 @@ export type Database = {
       listings_public: Table<PublicListing>;
       listing_availability: Table<ListingAvailability>;
     };
-    Functions: Record<string, never>;
+    Functions: {
+      /* The rate limiter behind the public estimate — see migration 0019. */
+      bump_lookup_quota: {
+        Args: { p_visitor: string; p_day: string; p_limit: number };
+        Returns: Array<{ allowed: boolean; used: number }>;
+      };
+      lookups_today: {
+        Args: { p_day: string };
+        Returns: number;
+      };
+    };
     Enums: {
       user_role: UserRole;
       listing_status: ListingStatus;

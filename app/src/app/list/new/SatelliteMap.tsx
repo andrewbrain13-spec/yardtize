@@ -46,11 +46,17 @@ export type SatelliteMapProps = {
   apiKey: string | null;
   center: { lat: number; lng: number };
   pin: { lat: number; lng: number };
-  onPinMove: (pos: { lat: number; lng: number }) => void;
+  /*
+   * Omitted where the map is only showing a place rather than asking somebody
+   * to choose one — the public estimate page. Without a handler the pin is not
+   * draggable, so the map cannot invite an interaction that goes nowhere.
+   */
+  onPinMove?: (pos: { lat: number; lng: number }) => void;
 };
 
 /**
- * Aerial view of the property with a draggable sign pin.
+ * Aerial view of the property, with a draggable sign pin when the caller wants
+ * one placed.
  *
  * Renders a labelled placeholder rather than an error when no key is present,
  * so the rest of the wizard — traffic, compliance, pricing — still demos.
@@ -89,14 +95,14 @@ export function SatelliteMap({ apiKey, center, pin, onPinMove }: SatelliteMapPro
         const marker = new window.google.maps.Marker({
           position: pin,
           map,
-          draggable: true,
+          draggable: Boolean(moveRef.current),
           title: "Drag to where your sign would stand",
         });
         markerRef.current = marker;
 
         marker.addListener("dragend", () => {
           const p = marker.getPosition();
-          if (p) moveRef.current({ lat: p.lat(), lng: p.lng() });
+          if (p) moveRef.current?.({ lat: p.lat(), lng: p.lng() });
         });
       })
       .catch(() => !cancelled && setFailed(true));

@@ -17,8 +17,11 @@ export function Hero() {
           code — so you know what your corner is worth, and that it&rsquo;s legal.
         </p>
         <div className="flex gap-3 flex-wrap">
-          <ButtonLink href="/list" size="big">
-            List your yard →
+          <ButtonLink href="/worth" size="big">
+            What&rsquo;s my yard worth? →
+          </ButtonLink>
+          <ButtonLink href="/list" variant="ghost" size="big">
+            List your yard
           </ButtonLink>
           <ButtonLink href="/browse" variant="ghost" size="big">
             Browse yards for your business

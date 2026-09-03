@@ -7,6 +7,7 @@ import { buttonClass } from "./ui";
 
 const LINKS = [
   { href: "/", label: "How it works" },
+  { href: "/worth", label: "What's it worth?" },
   { href: "/list", label: "List your yard" },
   { href: "/browse", label: "For businesses" },
 ];
