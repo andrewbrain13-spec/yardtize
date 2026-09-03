@@ -233,6 +233,56 @@ export type OnboardingStart =
  * comes with paying out to individuals in fifty states. Yardtize never sees a
  * bank account number, which is the point.
  */
+/**
+ * Create the connected account, in whichever shape this API version accepts.
+ *
+ * `type: "express"` was how you made one for years. Newer API versions express
+ * the same thing through controller properties — who pays the fees, who wears
+ * the losses, which dashboard the account gets — and the library now nudges
+ * towards Accounts v2 on every call. The account this produces is identical
+ * either way: Stripe-hosted onboarding, Stripe carrying the identity and bank
+ * verification, and Yardtize never seeing an account number.
+ *
+ * Both are attempted because the failure being diagnosed is remote: Checkout
+ * works on this same key and API version, so the client is fine and it is this
+ * call specifically that Stripe is refusing. Trying the current shape first
+ * and the older one second answers the question in one attempt instead of two,
+ * and whichever way it goes the log below names it.
+ */
+async function createConnectedAccount(
+  client: Stripe,
+  email: string,
+  userId: string,
+): Promise<Stripe.Account> {
+  const shared = {
+    email,
+    capabilities: { transfers: { requested: true as const } },
+    metadata: { profile_id: userId },
+  };
+
+  try {
+    return await client.accounts.create({
+      ...shared,
+      controller: {
+        // Yardtize collects from the advertiser and pays the homeowner, so
+        // the platform is the one charging fees and carrying losses.
+        fees: { payer: "application" },
+        losses: { payments: "application" },
+        stripe_dashboard: { type: "express" },
+      },
+    });
+  } catch (error) {
+    const e = error as { type?: string; code?: string; message?: string };
+    console.error("[payouts] controller-style account creation refused", {
+      type: e.type,
+      code: e.code,
+      message: e.message,
+    });
+    // Fall back to the older shape. If this also fails, the caller logs it.
+    return await client.accounts.create({ ...shared, type: "express" });
+  }
+}
+
 export async function startPayoutOnboarding(
   userId: string,
   email: string,
@@ -252,20 +302,7 @@ export async function startPayoutOnboarding(
 
   try {
     if (!accountId) {
-      /*
-       * The minimum Stripe documents for an Express account. It used to also
-       * set a payout schedule and a business type; both were removed after
-       * this call started failing, on the principle that the first thing to
-       * try is the shape Stripe's own documentation describes. A connected
-       * account can set its own schedule, and Stripe infers the business type
-       * during onboarding, so neither was earning its place.
-       */
-      const account = await client.accounts.create({
-        type: "express",
-        email,
-        capabilities: { transfers: { requested: true } },
-        metadata: { profile_id: userId },
-      });
+      const account = await createConnectedAccount(client, email, userId);
       accountId = account.id;
       await admin
         .from("profiles")
