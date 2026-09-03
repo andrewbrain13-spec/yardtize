@@ -252,6 +252,15 @@ export type OnboardingStart =
  * and the payout schedule are all left for Stripe to establish during
  * onboarding, which is where the homeowner is anyway.
  */
+/** Serialise an error body for a log line without letting it run away. */
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value)?.slice(0, 4000) ?? "(none)";
+  } catch {
+    return "(unserialisable)";
+  }
+}
+
 async function createConnectedAccount(
   client: Stripe,
   email: string,
@@ -261,6 +270,21 @@ async function createConnectedAccount(
     contact_email: email,
     // Express: Stripe hosts the onboarding and the account's own dashboard.
     dashboard: "express",
+    /*
+     * Stripe requires the country before it will accept a recipient
+     * configuration, and the entity type decides which identity fields it
+     * will go on to ask for. Homeowners are individuals renting out their own
+     * front lawn — not companies — and the pilot is Kansas City, so both are
+     * known facts rather than guesses.
+     *
+     * Their name, date of birth and bank details are deliberately absent. We
+     * do not hold them, and Stripe collects them directly during onboarding,
+     * which is the entire reason for sending somebody there.
+     */
+    identity: {
+      country: "us",
+      entity_type: "individual",
+    },
     configuration: {
       recipient: {
         capabilities: {
@@ -282,6 +306,7 @@ async function createConnectedAccount(
      * payment is later reversed. A homeowner should never inherit that.
      */
     defaults: {
+      currency: "usd",
       responsibilities: {
         fees_collector: "application",
         losses_collector: "application",
@@ -358,7 +383,7 @@ export async function startPayoutOnboarding(
       code?: string;
       statusCode?: number;
       message?: string;
-      raw?: { message?: string };
+      raw?: unknown;
     };
     console.error("[payouts] Stripe refused Connect onboarding", {
       profileId: userId,
@@ -367,7 +392,18 @@ export async function startPayoutOnboarding(
       type: e.type,
       code: e.code,
       statusCode: e.statusCode,
-      message: e.raw?.message ?? e.message,
+      message: e.message,
+      /*
+       * The whole error body, not just the summary line.
+       *
+       * Diagnosing this remotely turned into several rounds of adding one
+       * field, deploying, and discovering the next omission — each costing a
+       * person a browser click. Stripe reports every invalid field it found,
+       * and nested details live below the top-level message, so printing the
+       * lot means the next failure names everything at once instead of
+       * rationing it out.
+       */
+      raw: safeJson(e.raw),
     });
 
     /*
