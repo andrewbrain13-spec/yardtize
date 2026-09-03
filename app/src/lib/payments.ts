@@ -270,6 +270,23 @@ async function createConnectedAccount(
         },
       },
     },
+    /*
+     * Who carries the fees and who carries the losses. Stripe requires both to
+     * be stated the moment stripe_transfers is requested — it will not infer
+     * them — and for an Express dashboard both must be "application".
+     *
+     * That also happens to be true of this business rather than merely
+     * permitted by it: Yardtize charges the advertiser on its own account and
+     * transfers the homeowner's share across, so the platform is the party
+     * collecting the fee and the party left holding a negative balance if a
+     * payment is later reversed. A homeowner should never inherit that.
+     */
+    defaults: {
+      responsibilities: {
+        fees_collector: "application",
+        losses_collector: "application",
+      },
+    },
     metadata: { profile_id: userId },
   });
 }
